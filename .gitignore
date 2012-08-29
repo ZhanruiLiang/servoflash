@@ -1,0 +1,6 @@
+.*.swp
+.*.swo
+vec2d.py
+PygameReadWrite/
+*.pyc
+

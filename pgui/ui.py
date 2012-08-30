@@ -30,6 +30,7 @@ def concat_func(func1, func2):
         func2(*args, **dargs)
     return func
 
+
 class UIBase(pg.sprite.Sprite):
     AllArgs = update_join({},
             parent='None', 
@@ -61,6 +62,7 @@ class UIBase(pg.sprite.Sprite):
         for attr, default in self.AllArgs.iteritems():
             if not hasattr(self, attr):
                 setattr(self, attr, eval(default))
+        " _eventHandlers :: {eventType: (handler, blockMode)} "
         self._eventHandlers = {}
         self.childs = []
 
@@ -77,13 +79,13 @@ class UIBase(pg.sprite.Sprite):
         if parent:
             self.parent.add_child(self)
 
-    def __repr__(self, shows=['id', 'pos']):
+    def __repr__(self, shows=['id', 'pos', 'level']):
         args = ','.join('%s=%s' % (attr, getattr(self, attr)) 
                             for attr in shows if attr != 'parent' and hasattr(self, attr))
         return '%s(%s)' % (self.__class__.__name__, args)
 
     def on_event(self, eventType, event):
-        " try handle the event, return true if the event is blocked by this object "
+        " try handle the event, return true if the event is blocked at this object "
         if eventType in self._eventHandlers:
             if (eventType in (EV_KEYPRESS, EV_MOUSEOUT, EV_DRAGOUT)
                     or self.is_under_mouse(mouse.pos)):
@@ -105,40 +107,51 @@ class UIBase(pg.sprite.Sprite):
             return blocked
 
     def bind(self, eventType, handler, blockMode=BLK_POST_BLOCK):
+        """
+        Bind an event to this object.
+        eventType: event-types starts with EV_ .
+        handler: a callback, with a event as the only parameter
+        blockMode: a block mode, all availiable modes are BLK_* in uiconst.py
+        """
         self._eventHandlers[eventType] = (handler, blockMode)
 
     def redraw(self, *args):
         # redraw ownImage
-        print self, 'redrawed'
         self._redrawed = 1
 
     def update(self, *args):
+        """ Update the affected area and return the affectedRect,
+            relative to parent's coord system 
+        """
         image = self.image
         ownImage = self.ownImage
         self.rect.topleft = self.pos
-        # update the affectedRect part of image 
-        rects = []
-        for child in self.childs:
-            rect = child.update(*args)
-            if rect is not None: rects.append(rect)
-        if self._redrawed:
-            rects.append(pg.Rect((0, 0), self.size))
-            self._redrawed = 0
-        if not rects:
-            return None
-        affectedRect = rects[0].unionall(rects)
-        # reset the affected area as self's ownImage
-        pg.draw.rect(image, COLOR_TRANS, affectedRect, 0)
-        image.blit(ownImage, affectedRect, affectedRect)
-        # image.blit(ownImage, (0, 0))
+
+        affected = any([c.update(*args) for c in self.childs])
+        affected = affected or self._redrawed
+        self._redrawed = 0
+        if not affected: 
+            return False
+        if ownImage:
+            image.fill(COLOR_TRANS)
+            image.blit(ownImage, (0, 0))
         # sort the childs by their level, render the lowwer level ones first.
-        for child in sorted(self.childs, cmp=lambda x, y: x.level < y.level):
+        for child in reversed(self.childs):
             image.blit(child.image, child.rect)
-        print self, 'is affected', affectedRect
-        return affectedRect
+        return True
+
+    def _child_cmp(self, c1, c2):
+        return cmp(c2.level, c1.level)
 
     def add_child(self, child):
         self.childs.append(child)
+        self.childs.sort(cmp=self._child_cmp)
+
+    def update_child(self): 
+        self.childs.sort(cmp=self._child_cmp)
+
+    def remove_child(self, child):
+        self.childs.remove(child)
 
     def get_global_pos_at(self, localPos):
         # p0(basic pos) in global

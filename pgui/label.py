@@ -28,4 +28,3 @@ class Label(UIBase):
         image.fill(self.bgcolor)
         image.blit(txt, (V2I(self.size) - txtsize)/2)
         self._redrawed = 1
-        print self, 'redrawed'

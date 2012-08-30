@@ -1,4 +1,5 @@
 from ui import *
+from timer import Timer
 
 class Root(UIBase):
     AllArgs = update_join(UIBase.AllArgs, 
@@ -17,6 +18,7 @@ class Root(UIBase):
 
         self._quit = False
         self._underMouse = []
+        self._timers = []
 
     def get_global_pos_at(self, localPos):
         return V2I(localPos)
@@ -70,9 +72,14 @@ class Root(UIBase):
         self.redraw()
         while not self._quit:
             self.handle_event()
+            #update timers
+            Timer.update_all(1./FPS)
+            # update graphic
             self.update()
             pg.display.flip()
+            # delay
             tm.tick(FPS)
 
     def quit(self):
         self._quit = True
+

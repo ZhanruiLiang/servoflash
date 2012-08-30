@@ -1,5 +1,6 @@
 from ui import *
 from aarrect import AAfilledRoundedRect
+from timer import Timer
 
 class Button(UIBase):
     AllArgs = update_join(UIBase.AllArgs, 
@@ -18,6 +19,9 @@ class Button(UIBase):
         self.bind(EV_MOUSEOVER, func_id(False), BLK_PRE_NONBLOCK)
         self.bind(EV_MOUSEDOWN, func_id(False), BLK_PRE_NONBLOCK)
         self.bind(EV_MOUSEOUT, func_id(False), BLK_PRE_NONBLOCK)
+
+        self._animateTimer = Timer(0.05, self.animate)
+        Timer.add(self._animateTimer)
 
     def _color_move(self, c1, c2):
         # for x1, x2 in zip(c1, c2):
@@ -38,15 +42,18 @@ class Button(UIBase):
         image.blit(self.txt, (V2I(self.size) - self.txt.get_size())/2)
         self._redrawed = 1
 
-    def update(self, *args):
+    def animate(self):
+        # print 'animate', self, self.curColor, self.destColor
         if not self._color_eq(self.curColor, self.destColor):
             self.curColor = self._color_move(self.curColor, self.destColor)
-            self.redraw(*args)
-        return super(Button, self).update(*args)
+            self.redraw()
+        else:
+            self._animateTimer.stop()
 
     _ets = (EV_MOUSEOVER, EV_MOUSEDOWN, EV_MOUSEUP)
     def on_event(self, eventType, event):
         r = super(Button, self).on_event(eventType, event)
+        changed = True
         if eventType in self._ets and self.is_under_mouse(event.pos):
             if eventType == EV_MOUSEOVER:
                 # mouse over, change the  color to a lighter one
@@ -57,9 +64,15 @@ class Button(UIBase):
             elif eventType == EV_MOUSEUP:
                 # reset the color to bgcolor
                 self.destColor = self.bgcolor
+            else:
+                changed = False
         elif eventType == EV_MOUSEOUT:
             # reset the color to bgcolor
             self.destColor = self.bgcolor
+        else:
+            changed = False
+        if changed:
+            self._animateTimer.start()
         return r
 
 class TransButton(Button):

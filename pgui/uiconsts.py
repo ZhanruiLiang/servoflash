@@ -34,3 +34,7 @@ BTN_MOUSEUP = 4
 BTN_MOUSEDOWN = 5
 
 COLOR_TRANS = (0, 0, 0, 0)
+
+# font
+DEFAULT_FONT = 'MonospaceTypewriter.ttf'
+

@@ -53,14 +53,14 @@ class DragBar(UIBase):
                 percent = max(0, float(x - bw2) / (w - 2 * bw2))
             else:
                 percent = 0
-            self.value = self.minvalue + (self.maxvalue - self.minvalue) * percent
+            self.value = int(self.minvalue + (self.maxvalue - self.minvalue) * percent)
             self.blockButton.pos = V2I((max(0, min(w - bw2 * 2, x)), 0))
         else:
             if h != 2 * bw2:
                 percent = max(0, float(y - bw2) / (h - 2 * bw2))
             else:
                 percent = 0
-            self.value = self.minvalue + (self.maxvalue - self.minvalue) * percent
+            self.value = int(self.minvalue + (self.maxvalue - self.minvalue) * percent)
             self.blockButton.pos = V2I((0, max(0, min(h - bw2 * 2, y))))
         for callback in self._on_change_callbacks:
             callback()

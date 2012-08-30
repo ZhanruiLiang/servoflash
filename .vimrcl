@@ -1,1 +1,1 @@
-map <F5> :!pyrunner %<Cr>
+map <F5> :!pyrunner testui.py<Cr>

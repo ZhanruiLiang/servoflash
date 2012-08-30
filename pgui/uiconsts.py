@@ -15,14 +15,22 @@ BLK_PRE_NONBLOCK = 0
 BLK_POST_BLOCK = 3
 BLK_POST_NONBLOCK = 2
 
-PG_NUM = 323 # key state list length of pygame.key.get_pressed
+PG_NUM = 323  # key state list length of pygame.key.get_pressed
 MOUSE_BUTTON_NUM = 5
 KEY_NUM = PG_NUM + MOUSE_BUTTON_NUM
 
-# mouse buttons
-K_MOUSELEFT = PG_NUM
-K_MOUSERIGHT = PG_NUM + 1
-K_MOUSEMID = PG_NUM + 2
+# mouse buttons as pygame constants
+K_MOUSELEFT = PG_NUM + 0
+K_MOUSEMID = PG_NUM + 1
+K_MOUSERIGHT = PG_NUM + 2
 K_MOUSEUP = PG_NUM + 3
 K_MOUSEDOWN = PG_NUM + 4
 
+# mouse buttons
+BTN_MOUSELEFT = 1
+BTN_MOUSERIGHT = 2
+BTN_MOUSEMID = 3
+BTN_MOUSEUP = 4
+BTN_MOUSEDOWN = 5
+
+COLOR_TRANS = (0, 0, 0, 0)

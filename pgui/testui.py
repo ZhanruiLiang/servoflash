@@ -54,8 +54,14 @@ textbox = TextBox(root, level=120, pos=(100, 20), size=(500, 400),
         text=src, wrapping=True, fontsize=12)
 drag = DragBar(root, pos=(650, 10), size=(20, 500), vertical=True,
             minvalue=0, maxvalue=len(textbox.lines)-1)
-textbox.bind(EV_MOUSEUP, lambda e: setattr(drag, 'value', textbox.curline))
-textbox.bind(EV_MOUSEDOWN, lambda e: setattr(drag, 'value', textbox.curline))
+def scroll(e):
+    if e.button == BTN_MOUSEUP:
+        textbox.scroll(-1)
+    elif e.button == BTN_MOUSEDOWN:
+        textbox.scroll(1)
+    drag.value = textbox.curline
+
+textbox.bind(EV_MOUSEDOWN, scroll)
 drag.bind_on_change(lambda: textbox.scroll_to(int(drag.value)))
 
 root.mainloop()

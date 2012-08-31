@@ -26,6 +26,15 @@ class DragBar(UIBase):
         try:
             self._value = max(self.minvalue, min(self.maxvalue, v))
             self.redraw()
+            bw = self.blockwidth
+            if self.vertical:
+                w = self.size[1]
+            else:
+                w = self.size[0]
+            if self.vertical:
+                self.blockButton.pos = V2I((0, bw/2 + self.percent * (w - bw)))
+            else:
+                self.blockButton.pos = V2I((bw/2 + self.percent * (w - bw), 0))
         except AttributeError:
             self._value = v
 
@@ -48,20 +57,14 @@ class DragBar(UIBase):
         w, h = self.size
         x, y = self.get_local_pos_at(event.pos)
         bw2 = self.blockwidth / 2
-        if not self.vertical:
-            if w != 2 * bw2:
-                percent = max(0, float(x - bw2) / (w - 2 * bw2))
-            else:
-                percent = 0
-            self.value = int(self.minvalue + (self.maxvalue - self.minvalue) * percent)
-            self.blockButton.pos = V2I((max(0, min(w - bw2 * 2, x)), 0))
+        if self.vertical:
+            h, w = w, h
+            x, y = y, x
+        if w != 2 * bw2:
+            percent = max(0, float(x - bw2) / (w - 2 * bw2))
         else:
-            if h != 2 * bw2:
-                percent = max(0, float(y - bw2) / (h - 2 * bw2))
-            else:
-                percent = 0
-            self.value = int(self.minvalue + (self.maxvalue - self.minvalue) * percent)
-            self.blockButton.pos = V2I((0, max(0, min(h - bw2 * 2, y))))
+            percent = 0
+        self.value = int(self.minvalue + (self.maxvalue - self.minvalue) * percent)
         for callback in self._on_change_callbacks:
             callback()
 

@@ -90,11 +90,14 @@ class UIBase(pg.sprite.Sprite):
             if (eventType in (EV_KEYPRESS, EV_MOUSEOUT, EV_DRAGOUT)
                     or self.is_under_mouse(mouse.pos)):
                 # print self, eventType, event
-                handler, blockMode = self._eventHandlers[eventType]
-                if blockMode in (BLK_PRE_BLOCK, BLK_PRE_BLOCK):
-                    handler(event)
-                    if blockMode == BLK_PRE_BLOCK:
-                        return True
+                blocked = False
+                for handler, blockMode in self._eventHandlers[eventType]:
+                    if blockMode in (BLK_PRE_BLOCK, BLK_PRE_BLOCK):
+                        handler(event)
+                        if blockMode == BLK_PRE_BLOCK:
+                            blocked = True
+                if blocked: return True
+                # NOTE: the `any` function on a sequence generator is lazy
                 blocked = any(child.on_event(eventType, event) for child in self.childs)
                 if blocked:
                     return True
@@ -113,7 +116,15 @@ class UIBase(pg.sprite.Sprite):
         handler: a callback, with a event as the only parameter
         blockMode: a block mode, all availiable modes are BLK_* in uiconst.py
         """
-        self._eventHandlers[eventType] = (handler, blockMode)
+        handlers = self._eventHandlers
+        pair = (handler, blockMode)
+        if eventType in handlers:
+            handlers[eventType].append(pair)
+        else:
+            handlers[eventType] = [pair]
+
+    def unbind(self, eventType, handler):
+        self._eventHandlers[eventType].remove(handler)
 
     def redraw(self, *args):
         # redraw ownImage

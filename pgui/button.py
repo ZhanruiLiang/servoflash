@@ -60,7 +60,8 @@ class Button(UIBase):
                 self.destColor = self.hovercolor
             elif eventType == EV_MOUSEDOWN:
                 # mosue down, change the color to a darker one
-                self.destColor = self.presscolor
+                if event.button in (BTN_MOUSELEFT, BTN_MOUSERIGHT):
+                    self.destColor = self.presscolor
             elif eventType == EV_MOUSEUP:
                 # reset the color to bgcolor
                 self.destColor = self.bgcolor

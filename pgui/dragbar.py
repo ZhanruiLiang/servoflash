@@ -5,7 +5,7 @@ class DragBar(UIBase):
     AllArgs = update_join(UIBase.AllArgs, 
             minvalue='0',
             maxvalue='100',
-            value='50',
+            value='0',
             vertical='False',
             bgcolor='(75, 50, 51, 255)',
             hovercolor='(93, 238, 90, 100)',
@@ -25,16 +25,16 @@ class DragBar(UIBase):
     def value(self, v):
         try:
             self._value = max(self.minvalue, min(self.maxvalue, v))
-            self.redraw()
             bw = self.blockwidth
             if self.vertical:
                 w = self.size[1]
+                self.blockButton.pos = V2I((0, self.percent * (w - bw)))
             else:
                 w = self.size[0]
-            if self.vertical:
-                self.blockButton.pos = V2I((0, bw/2 + self.percent * (w - bw)))
-            else:
-                self.blockButton.pos = V2I((bw/2 + self.percent * (w - bw), 0))
+                self.blockButton.pos = V2I((self.percent * (w - bw), 0))
+            self.redraw()
+            for callback in self._on_change_callbacks:
+                callback()
         except AttributeError:
             self._value = v
 
@@ -49,9 +49,19 @@ class DragBar(UIBase):
                 self, level=12, size=blockSize, color=self.color, caption='')
         back.bind(EV_CLICK, self.drag_to, BLK_POST_BLOCK)
         back.bind(EV_DRAGOVER, self.drag_to, BLK_POST_BLOCK)
+        back.bind(EV_MOUSEDOWN, self.scroll, BLK_POST_BLOCK)
         self.redraw()
 
         self._on_change_callbacks = []
+
+    def scroll(self, event):
+        if event.type not in (BTN_MOUSEUP, BTN_MOUSEDOWN): 
+            return
+        vlen = self.maxvalue - self.minvalue
+        if event.button == BTN_MOUSEUP:
+            self.value -= 1 + vlen / 100
+        else: 
+            self.value += 1 + vlen / 100
 
     def drag_to(self, event):
         w, h = self.size
@@ -65,8 +75,6 @@ class DragBar(UIBase):
         else:
             percent = 0
         self.value = int(self.minvalue + (self.maxvalue - self.minvalue) * percent)
-        for callback in self._on_change_callbacks:
-            callback()
 
     def bind_on_change(self, callback):
         self._on_change_callbacks.append(callback)

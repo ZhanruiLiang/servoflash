@@ -7,18 +7,27 @@ class Root(UIBase):
             size='(200, 200)',
             parent='None',
             )
+    def __init__(self, *args, **dargs):
+        super(Root, self).__init__(None, *args, **dargs)
 
-    def __init__(self, **dargs):
-        super(Root, self).__init__(None, **dargs)
-
-        self.image = pg.display.set_mode(self.size, pg.RESIZABLE, 32)
-        self.ownImage = self.image.copy()
+    def init(self):
         pg.display.set_caption(self.caption)
-        self.ownImage.fill(self.bgcolor)
-
         self._quit = False
         self._underMouse = []
         self._timers = []
+
+    @property
+    def size(self):
+        return self._size
+
+    @size.setter
+    def size(self, size):
+        self._size = size
+        self.image = pg.display.set_mode(self._size, pg.RESIZABLE, 32)
+        self.rect = self.image.get_rect()
+        self.ownImage = self.image.copy()
+        self.ownImage.fill(self.bgcolor)
+        self._redrawed = 1
 
     def get_global_pos_at(self, localPos):
         return V2I(localPos)
@@ -52,7 +61,8 @@ class Root(UIBase):
                     types.add(EV_RCLICK) # right click
                 types.add(EV_MOUSEDOWN) # mouse down
             elif e.type == pg.MOUSEBUTTONUP:
-                types.add(EV_MOUSEUP) # mouse up
+                if e.button not in (BTN_MOUSEUP, BTN_MOUSEDOWN):
+                    types.add(EV_MOUSEUP) # mouse up
             elif e.type == pg.KEYDOWN:
                 types.add(EV_KEYPRESS) # key press
             elif e.type == pg.MOUSEMOTION:
@@ -62,6 +72,9 @@ class Root(UIBase):
             elif e.type == pg.QUIT:
                 self.quit()
                 return
+            elif e.type == pg.VIDEORESIZE:
+                self.size = e.size
+                print e
             self._underMouse = underMouse
             for t in types:
                 self.on_event(t, e) # invoke the handler

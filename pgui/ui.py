@@ -65,19 +65,33 @@ class UIBase(pg.sprite.Sprite):
         " _eventHandlers :: {eventType: (handler, blockMode)} "
         self._eventHandlers = {}
         self.childs = []
-
-        try:
-            self.image = pg.Surface(self.size).convert_alpha()
-            self.ownImage = self.image.copy()
-            self.rect = self.image.get_rect()
-        except pg.error as e:
-            self.rect = pg.Rect((0, 0), self.size)
-        self.rect.topleft = self.pos
         self._redrawed = 0
 
         self.init()
-        if parent:
+        if parent is not None:
             self.parent.add_child(self)
+
+    @property
+    def pos(self):
+        return self._pos
+
+    @pos.setter
+    def pos(self, v):
+        self._pos = V2I(v)
+        if hasattr(self, 'rect'):
+            self.rect.topleft = self._pos
+            self._redrawed = 1
+
+    @property
+    def size(self):
+        return self._size
+
+    @size.setter
+    def size(self, s):
+        self._size = s
+        self.image = pg.Surface(self._size).convert_alpha()
+        self.ownImage = self.image.copy()
+        self.rect = self.image.get_rect()
 
     def __repr__(self, shows=['id', 'pos', 'level']):
         args = ','.join('%s=%s' % (attr, getattr(self, attr)) 

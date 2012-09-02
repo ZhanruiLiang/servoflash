@@ -3,6 +3,7 @@ from button import *
 from label import *
 from dragbar import *
 from textbox import TextBox
+from inputbox import InputBox
 
 def barker(msg):
     def bark(*args):
@@ -11,7 +12,7 @@ def barker(msg):
 def callback1(e):
     label.text = e.unicode
 
-root = Root(bgcolor=(0xff, 0xff, 0xff, 0xff), size=(800, 600))
+root = Root(bgcolor=(0x3f, 0xff, 0xff, 0xff), size=(800, 600))
 label = Label(root, text="hello", pos=(300, 200), size=(100, 30))
 label.bind(EV_CLICK, barker('mouse click'))
 
@@ -49,11 +50,11 @@ This is the third line.
 End.
 """
 )
-textbox = TextBox(root, level=120, pos=(100, 20), size=(500, 400), 
-        color=(0xff, 0xff, 0xff, 0xff), bgcolor=(0, 0, 0, 0x9f),
-        text=src, wrapping=True, fontsize=12)
-drag = DragBar(root, pos=(650, 10), size=(20, 500), vertical=True,
-            minvalue=0, maxvalue=len(textbox.lines)-1)
+# textbox = TextBox(root, level=120, pos=(100, 20), size=(500, 400), 
+#         color=(0xff, 0xff, 0xff, 0xff), bgcolor=(0, 0, 0, 0x9f),
+#         text=src, wrapping=True, fontsize=12)
+# drag = DragBar(root, pos=(650, 10), size=(20, 500), vertical=True,
+#             minvalue=0, maxvalue=len(textbox.lines)-1)
 def scroll(e):
     if e.button == BTN_MOUSEUP:
         textbox.scroll(-1)
@@ -61,8 +62,11 @@ def scroll(e):
         textbox.scroll(1)
     drag.value = textbox.curline
 
-textbox.bind(EV_MOUSEDOWN, scroll)
-drag.bind_on_change(lambda: textbox.scroll_to(int(drag.value)))
+# textbox.bind(EV_MOUSEDOWN, scroll)
+# drag.bind_on_change(lambda: textbox.scroll_to(int(drag.value)))
+# drag.bind_on_change(lambda: setattr(button, "size", (5*(1 + int(drag.value)), 30)))
+
+# inputbox = InputBox(root, pos=(20, 200), size=(60, 20))
 
 root.mainloop()
 

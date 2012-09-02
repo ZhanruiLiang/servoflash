@@ -38,3 +38,5 @@ COLOR_TRANS = (0, 0, 0, 0)
 # font
 DEFAULT_FONT = 'MonospaceTypewriter.ttf'
 
+MAX_LEVEL = 100000
+FPS = 20

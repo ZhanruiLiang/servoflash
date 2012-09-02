@@ -9,6 +9,9 @@ class TextBox(UIBase):
             font="DEFAULT_FONT",
             fontsize="14",
             )
+    ArgsOrd = ord_join(UIBase.ArgsOrd,
+            ['color', 'bgcolor', 'font', 'fontsize', 'wrapping', 'text']
+            )
 
     def init(self):
         self.ownImage = None

@@ -3,6 +3,7 @@ class Timer(object):
     @staticmethod
     def add(timer):
         Timer.timers.append(timer)
+        return timer
 
     @staticmethod
     def remove(timer):
@@ -35,7 +36,7 @@ class Timer(object):
         if not self.running: return
         self.accu += dt
         while self.accu >= self.interval:
-            self.callback()
+            self.callback(dt)
             if self.loop > 0:
                 self.loop -= 1
             elif self.loop == 1:

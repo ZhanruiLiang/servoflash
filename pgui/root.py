@@ -1,11 +1,15 @@
 from ui import *
 from timer import Timer
+import focus
 
 class Root(UIBase):
     AllArgs = update_join(UIBase.AllArgs, 
             caption='"UIRoot"',
             size='(200, 200)',
             parent='None',
+            )
+    ArgsOrd = ord_join(UIBase.ArgsOrd,
+            ['parent', 'caption', 'size']
             )
     def __init__(self, *args, **dargs):
         super(Root, self).__init__(None, *args, **dargs)
@@ -41,10 +45,11 @@ class Root(UIBase):
             Keys.update(e)
             # print 'pressed', Keys.get_pressed()
             mouse.update(e)
+
+            # start detect eventTypes
             types = set()
             underMouse = []
             self.get_all_under_mouse(mouse.pos, underMouse.append)
-            # print 'underMouse', underMouse
             for ui in self._underMouse:
                 if ui not in underMouse:
                     # mouse move out this ui just now
@@ -52,7 +57,6 @@ class Root(UIBase):
                     if mouse.is_draging():
                         # drag out
                         ui.on_event(EV_DRAGOUT, e)# invoke the handler
-            # print mouse
             if mouse.is_clicked():
                 types.add(EV_CLICK) # click
 
@@ -77,12 +81,17 @@ class Root(UIBase):
                 print e
             self._underMouse = underMouse
             for t in types:
-                self.on_event(t, e) # invoke the handler
+                if t == EV_KEYPRESS and focus.get_focus() is not None:
+                    # feed input into focused object
+                    focus.get_focus().input(e)
+                else:
+                    self.on_event(t, e) # invoke the handler
 
-    def mainloop(self, FPS=20):
+    def mainloop(self):
         self._quit = False
         tm = pg.time.Clock()
         self.redraw()
+        pg.key.set_repeat(1000, 200)
         while not self._quit:
             self.handle_event()
             #update timers
@@ -95,4 +104,3 @@ class Root(UIBase):
 
     def quit(self):
         self._quit = True
-

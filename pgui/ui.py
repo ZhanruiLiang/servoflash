@@ -1,14 +1,16 @@
 import pygame as pg
 from vec2di import V2I
 from uiconsts import *
+from eventh import *
 # using new style class
 __metaclass__ = type
 
-class Error:
-    def __init__(self, msg):
-        self.msg = msg
-    def __repr__(self):
-        return msg
+# class Error(BaseException):
+#     def __init__(self, msg):
+#         self.msg = msg
+#     def __repr__(self):
+#         return msg
+Error = Exception
 
 def update_join(d1, d2=None, **dargs):
     " update d1 with d2 -> d3 "
@@ -18,6 +20,31 @@ def update_join(d1, d2=None, **dargs):
     for k, v in d2.iteritems():
         d3[k] = v
     return d3
+
+def ord_join(ord1, ord2):
+    result = []
+    ord1 = ord1[::-1]
+    ord2 = ord2[::-1]
+    while ord1 and ord2:
+        x = ord1[-1]
+        if x not in ord2:
+            result.append(x)
+            del ord1[-1]
+        else:
+            y = ord2[-1]
+            if x == y:
+                result.append(x)
+                del ord1[-1]
+                del ord2[-1]
+            elif y not in ord1:
+                result.append(y)
+                del ord2[-1]
+            else:
+                raise Error("cyclic order join: joined: %s, left: %s, %s" % (
+                    result, ord1[::-1], ord2[::-1]))
+    if ord1: result += ord1[::-1]
+    else: result += ord2[::-1]
+    return result
 
 def func_id(value):
     def func(*args, **dargs):
@@ -30,46 +57,54 @@ def concat_func(func1, func2):
         func2(*args, **dargs)
     return func
 
+def color_eq(c1, c2):
+    d = sum((x1 - x2) ** 2 for x1, x2 in zip(c1, c2))
+    return d < 30
 
-class UIBase(pg.sprite.Sprite):
+# step color c1 to color c2
+def step_color(c1, c2, k=0.30):
+    return tuple(int(x1 + (x2 - x1) * k) for x1, x2 in zip(c1, c2))
+
+class UIBase(EventHandler, pg.sprite.Sprite):
     AllArgs = update_join({},
-            parent='None', 
             level='100',
-            size='(0 ,0)',
-            pos='V2I((0, 0))',
             color='(0, 0 ,0 ,0xff)',
             bgcolor='(0, 0, 0, 0)',
+            pos='V2I((0, 0))',
+            size='(1 ,1)',
             )
+    ArgsOrd = ord_join([], 
+        ['level', 'color', 'bgcolor', 'pos', 'size']
+        )
+
     pg.font.init()
     pg.display.init()
     ID = 0
-    def init(self):
-        pass
 
     def __init__(self, parent, **dargs):
         self.id = UIBase.ID
         UIBase.ID += 1
         self.parent = parent
-        dargs1 = {}
-        for key in dargs:
-            if key in self.AllArgs:
-                setattr(self, key, dargs[key])
-            else:
-                # raise Error('argument "%s" not recognized' % key)
-                dargs1[key] = dargs[key]
-        super(UIBase, self).__init__(**dargs1)
+        self._redrawed = 1
+        # loop through the ArgsOrd list and assign args
+        print self.ArgsOrd
+        for attr in self.ArgsOrd:
+            if attr in dargs:
+                setattr(self, attr, dargs[attr])
+                del dargs[attr]
+            elif attr in self.AllArgs:
+                setattr(self, attr, eval(self.AllArgs[attr]))
+        super(UIBase, self).__init__(**dargs)
 
-        for attr, default in self.AllArgs.iteritems():
-            if not hasattr(self, attr):
-                setattr(self, attr, eval(default))
-        " _eventHandlers :: {eventType: (handler, blockMode)} "
-        self._eventHandlers = {}
         self.childs = []
         self._redrawed = 0
-
         self.init()
+        self.redraw()
         if parent is not None:
             self.parent.add_child(self)
+
+    def init(self):
+        pass
 
     @property
     def pos(self):
@@ -88,6 +123,9 @@ class UIBase(pg.sprite.Sprite):
 
     @size.setter
     def size(self, s):
+        self.resize(s)
+
+    def resize(self, s):
         self._size = s
         self.image = pg.Surface(self._size).convert_alpha()
         self.ownImage = self.image.copy()
@@ -98,59 +136,19 @@ class UIBase(pg.sprite.Sprite):
                             for attr in shows if attr != 'parent' and hasattr(self, attr))
         return '%s(%s)' % (self.__class__.__name__, args)
 
-    def on_event(self, eventType, event):
-        " try handle the event, return true if the event is blocked at this object "
-        if eventType in self._eventHandlers:
-            if (eventType in (EV_KEYPRESS, EV_MOUSEOUT, EV_DRAGOUT)
-                    or self.is_under_mouse(mouse.pos)):
-                # print self, eventType, event
-                blocked = False
-                for handler, blockMode in self._eventHandlers[eventType]:
-                    if blockMode in (BLK_PRE_BLOCK, BLK_PRE_BLOCK):
-                        handler(event)
-                        if blockMode == BLK_PRE_BLOCK:
-                            blocked = True
-                if blocked: return True
-                # NOTE: the `any` function on a sequence generator is lazy
-                blocked = any(child.on_event(eventType, event) for child in self.childs)
-                if blocked:
-                    return True
-                if blockMode in (BLK_POST_BLOCK, BLK_POST_NONBLOCK):
-                    handler(event)
-                    if blockMode == BLK_POST_BLOCK:
-                        return True
-        else:
-            blocked = any(child.on_event(eventType, event) for child in self.childs)
-            return blocked
-
-    def bind(self, eventType, handler, blockMode=BLK_POST_BLOCK):
-        """
-        Bind an event to this object.
-        eventType: event-types starts with EV_ .
-        handler: a callback, with a event as the only parameter
-        blockMode: a block mode, all availiable modes are BLK_* in uiconst.py
-        """
-        handlers = self._eventHandlers
-        pair = (handler, blockMode)
-        if eventType in handlers:
-            handlers[eventType].append(pair)
-        else:
-            handlers[eventType] = [pair]
-
-    def unbind(self, eventType, handler):
-        self._eventHandlers[eventType].remove(handler)
-
     def redraw(self, *args):
         # redraw ownImage
         self._redrawed = 1
 
     def update(self, *args):
-        """ Update the affected area and return the affectedRect,
-            relative to parent's coord system 
+        """ Update the affected area.
+            If readlly updated, return True, else False
         """
         image = self.image
         ownImage = self.ownImage
         self.rect.topleft = self.pos
+        if self.size != image.get_size():
+            self.redraw()
 
         affected = any([c.update(*args) for c in self.childs])
         affected = affected or self._redrawed
@@ -201,72 +199,3 @@ class UIBase(pg.sprite.Sprite):
         x, y = self.get_local_pos_at(mousepos)
         w, h = self.size
         return 0 <= x < w and 0 <= y < h
-
-
-class Keys:
-    states = [0] * KEY_NUM
-    @staticmethod
-    def get(key):
-        return Keys.states[key]
-
-    @staticmethod
-    def update(event):
-        et = event.type
-        if et == pg.KEYDOWN:
-            Keys.states[event.key] = 1
-        elif et == pg.KEYUP:
-            Keys.states[event.key] = 0
-        elif et == pg.MOUSEBUTTONDOWN:
-            Keys.states[event.button -1 + PG_NUM] = 1
-        elif et == pg.MOUSEBUTTONUP:
-            Keys.states[event.button -1 + PG_NUM] = 0
-    @staticmethod
-    def get_pressed():
-        pressed = [i for i in xrange(KEY_NUM) if Keys.states[i]]
-        return pressed
-
-class Mouse:
-    def __init__(self):
-        self.buttons = [False] * 6
-        self.lastButtons = [False] * 6
-        self._draging = False
-        self.pos = V2I((0, 0))
-        self.lastPos = V2I((0, 0))
-
-    def update(self, e):
-        self.lastButtons, self.buttons = self.buttons, self.lastButtons
-        for i in xrange(1, 6):
-            self.buttons[i] = Keys.get(PG_NUM + i - 1)
-        if e.type == pg.MOUSEMOTION:
-            self.lastPos = self.pos
-            self.pos = V2I(e.pos)
-
-        if self._draging:
-            # if left button clickd?
-            if not self.buttons[BTN_MOUSELEFT]:
-                # stop draging
-                self._draging = 0
-        else:
-            # if mouse moved?
-            if (self.buttons[BTN_MOUSELEFT] and self.pos - self.lastPos != (0, 0)):
-                # start draging
-                self._draging = 1
-
-    def is_clicked(self):
-        return (self.lastButtons[BTN_MOUSELEFT] and not self.buttons[BTN_MOUSELEFT])
-
-    def __repr__(self):
-        return 'Mouse(left=%d, right=%d, lastLeft=%d, lastRight=%d)' % (
-                self.buttons[BTN_MOUSELEFT], self.buttons[BTN_MOUSERIGHT],
-                self.lastButtons[BTN_MOUSELEFT], self.lastButtons[BTN_MOUSERIGHT],
-                )
-
-    def is_draging(self):
-        """
-        What's draging?
-        - button down, moved, or
-        - dragging, mouse down
-        """
-        return self._draging
-
-mouse = Mouse()

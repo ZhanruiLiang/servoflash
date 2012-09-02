@@ -37,10 +37,10 @@ class Timer(object):
         self.accu += dt
         while self.accu >= self.interval:
             self.callback(dt)
-            if self.loop > 0:
-                self.loop -= 1
-            elif self.loop == 1:
+            if self.loop == 1:
                 self.loop = -1
+            elif self.loop > 0:
+                self.loop -= 1
             self.accu -= self.interval
 
     def finish(self):

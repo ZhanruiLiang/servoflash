@@ -26,17 +26,24 @@ class EventHandler:
 
     _ets0 = (EV_KEYPRESS, EV_MOUSEOUT, EV_DRAGOUT)
     _ets1 = (EV_MOUSEOUT, EV_MOUSEDOWN, EV_CLICK, EV_RCLICK, EV_MOUSEUP, EV_MOUSEOVER, EV_DRAGOVER)
+
+    def invoke(self, eventType, event):
+        if eventType in self._eventHandlers:
+            for handlers in self._eventHandlers[eventType]:
+                for handler in handlers:
+                    handler(event)
+
     def on_event(self, eventType, event):
         """ try handle the event.
         return True if the event is blocked at this object.
         """
         if eventType in self._eventHandlers:
             # test if self should handle the event
-            # The object can should handle iff.
+            # self should handle iff:
             # * event is keypress.
             # * event is mouse-over, mouse-down, mouse-up, drag-over, mouse-click
             #     and self is under mouse.
-            # * event is mouse-out, drag-out(this assumes that self is not under mouse.
+            # * event is mouse-out, drag-out(this assumes that self is not under mouse).
             #
             if (eventType in self._ets0
                     or self.is_under_mouse(mouse.pos) and eventType in self._ets1):
@@ -44,8 +51,8 @@ class EventHandler:
                 blocked = False
                 # invoke the BLK_PRE_BLOCK handlers
                 for handler in bHandlers[BLK_PRE_BLOCK]:
-                    handler(event)
-                    blocked = True
+                    if not handler(event):
+                        blocked = True
                 # invoke the BLK_PRE_NONBLOCK handlers
                 for handler in bHandlers[BLK_PRE_NONBLOCK]:
                     handler(event)
@@ -57,8 +64,8 @@ class EventHandler:
 
                 # invoke the BLK_POST_BLOCK handlers
                 for handler in bHandlers[BLK_POST_BLOCK]:
-                    handler(event)
-                    blocked = True
+                    if not handler(event):
+                        blocked = True
                 for handler in bHandlers[BLK_POST_NONBLOCK]:
                     handler(event)
                 return blocked

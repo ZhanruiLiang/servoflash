@@ -29,10 +29,17 @@ class Root(UIBase):
         else:
             focus.set_focus(focus.next_focus())
 
+    def hide(self):
+        pg.display.iconify()
+
+    def show(self):
+        pass
+
     def resize(self, size):
         self.size = size
-        self.image = pg.display.set_mode(self.size, VFLAG, 32)
-        self.rect = self.image.get_rect()
+        # self.image = pg.display.set_mode(self.size, VFLAG, 32)
+        self.image=  pg.display.get_surface()
+        self.rect = pg.Rect(self.pos, size)
         self.ownImage = self.image.copy()
         self.mark_redraw()
 
@@ -49,6 +56,7 @@ class Root(UIBase):
     def handle_event(self):
         events = pg.event.get()
         for e in events:
+            print e
             Keys.update(e)
             # print 'pressed', Keys.get_pressed()
             mouse.update(e)
@@ -84,17 +92,24 @@ class Root(UIBase):
                 self.quit()
                 return
             elif e.type == pg.VIDEORESIZE:
-                self.size = e.size
+                pg.display.set_mode(e.size, VFLAG, 32)
+                self.resize(e.size)
                 print e
             self._underMouse = underMouse
             for t in types:
+                flag = 0
                 if t == EV_KEYPRESS:
                     if e.key == K_TAB:
                         self.tab_focus(e)
+                        flag = 1
+                    elif focus.get_focus() is not None and e.key == K_ESCAPE:
+                        focus.set_focus(None)
+                        flag = 1
                     elif focus.get_focus() is not None:
                         # feed input into focused object
-                        focus.get_focus().input(e)
-                else:
+                        if not focus.get_focus().input(e):
+                            flag = 1
+                if not flag:
                     self.on_event(t, e) # invoke the handler
 
     def mainloop(self):
@@ -111,4 +126,5 @@ class Root(UIBase):
             tm.tick(FPS)
 
     def quit(self):
+        print 'quit'
         self._quit = True

@@ -1,9 +1,8 @@
 from ui import *
 from button import Button
-
-class MenuItem(Button):
-    def set_callback(self, callback):
-        self.bind(EV_CLICK, callback, BLK_PRE_BLOCK)
+from rsimage import RSImage
+from animate import SizeAnimate
+from timer import Timer
 
 class Menu(UIBase):
     AllArgs = update_join(UIBase.AllArgs, 
@@ -19,36 +18,51 @@ class Menu(UIBase):
             )
     assert sorted(AllArgs.keys()) == sorted(ArgsOrd)
 
+    rsi = RSImage('gradient_bg.png', 20, 20)
+
     def init(self):
         self.items = []
         if self.vertical:
             self.resize((self.itemsize[0] + 2 * self.margin, self.margin))
         else:
             self.resize((self.margin, self.itemsize[1] + self.margin * 2))
+        Timer.add(Timer(1./FPS, self.animate))
 
-    def hide(self, *args):
-        self._visible = False
-
-    def show(self, *args):
-        self._visible = True
-        
     def add_item(self, name, callback):
         wi, hi = self.itemsize
         margin = self.margin
         if not self.vertical:
             y = margin
             x = (margin + self.itemsize[0])* len(self.items)
-            self.resize((self.size[0] + wi + margin, self.size[1]))
         else:
             x = margin
             y = (margin + self.itemsize[1]) * len(self.items) + margin
-            self.resize((self.size[0], self.size[1] + hi + margin))
-        item = MenuItem(self, caption=name, size=self.itemsize, pos=(x, y), 
+        item = Button(self, caption=name, size=self.itemsize, pos=(x, y), 
                 color=self.color, bgcolor=self.bgcolor,
-                align=Button.ALIGN_LEFT)
-        item.set_callback(callback)
+                align=Button.ALIGN_CENTER)
+        item.bind_command(callback)
+        item.bind(EV_CLICK, self.hide, BLK_PRE_BLOCK)
         self.items.append(item)
+        self.resize(self.cal_size())
         self.mark_redraw()
+
+    def cal_size(self):
+        wi, hi = self.itemsize
+        margin = self.margin
+        if not self.vertical:
+            return (margin + len(self.items) * (wi + margin), self.size[1])
+        else:
+            return (self.size[0], (hi + margin) * len(self.items) + margin)
+
+    def animate(self, dt):
+        if not hasattr(self, 'curSize') or self.curSize.is_end(): return
+        self.resize(self.curSize.get())
+        self._redrawed = 1
+        self.mark_redraw()
+
+    def show(self, *args):
+        super(Menu, self).show(*args)
+        self.curSize = SizeAnimate((0, 0), self.cal_size())
 
     def remove_item(self, name):
         for item in self.items:
@@ -62,5 +76,6 @@ class Menu(UIBase):
 
     def redraw(self):
         image = self.ownImage
-        image.fill(self.gapcolor)
-
+        image.fill(COLOR_TRANS)
+        image.blit(self.rsi.generate(self.size), (0, 0))
+        image.fill(self.gapcolor, None, BLEND_RGBA_MULT)

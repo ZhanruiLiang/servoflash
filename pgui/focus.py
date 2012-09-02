@@ -8,31 +8,33 @@ def set_focus(obj):
     _focus = obj
     if obj is not None:
         obj.on_focus()
+    # print 'set_focus', obj
     return obj
 
 def get_focus():
     return _focus
 
 def next_focus():
-    print 'next_focus'
     f = get_focus()
+    focusList = [x for x in _focusList if x.is_visible()]
     if f is None:
-        if _focusList:
+        if focusList:
             return _focusList[0]
         else:
             return None
-    idx = _focusList.index(f)
-    return _focusList[(idx + 1) % len(_focusList)]
+    idx = focusList.index(f)
+    return focusList[(idx + 1) % len(focusList)]
 
 def prev_focus():
     f = get_focus()
+    focusList = [x for x in _focusList if x.is_visible()]
     if f is None:
-        if _focusList:
-            return _focusList[-1]
+        if focusList:
+            return focusList[-1]
         else:
             return None
-    idx = _focusList.index(f)
-    return _focusList[idx - 1]
+    idx = focusList.index(f)
+    return focusList[idx - 1]
 
 def add_focus_obj(obj, idx=-1):
     if idx == -1:
@@ -61,6 +63,7 @@ class Focusable:
     def on_lost_focus(self):
         pass
 
-    def set_as_focus(self, event):
-        set_focus(self)
+    def set_as_focus(self, *args):
+        if self in _focusList:
+            set_focus(self)
 

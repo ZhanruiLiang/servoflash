@@ -56,4 +56,4 @@ def copy_to_X(text):
 def paste_from_X():
     p = subprocess.Popen('xsel -b', shell=True, stdout=subprocess.PIPE)
     p.wait()
-    return p.stdout.read()
+    return p.stdout.read().rstrip()

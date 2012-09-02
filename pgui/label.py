@@ -12,7 +12,7 @@ class Label(UIBase):
             text='""',
             bgcolor='(0x88, 0x88, 0x88, 0xff)',
             )
-    Font = pg.font.Font('MonospaceTypewriter.ttf', 11)
+    Font = pg.font.Font('MonospaceTypewriter.ttf', 13)
     ArgsOrd = ord_join(UIBase.ArgsOrd,
             ['align', 'bgcolor', 'size', 'text']
             )

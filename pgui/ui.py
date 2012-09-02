@@ -7,6 +7,7 @@ import focus
 # using new style class
 __metaclass__ = type
 
+pg.display.set_mode((10, 10), VFLAG, 32)
 class UIBase(EventHandler, pg.sprite.Sprite):
     AllArgs = update_join({},
             level='100',
@@ -54,6 +55,26 @@ class UIBase(EventHandler, pg.sprite.Sprite):
     def init(self):
         pass
 
+    def is_visible(self):
+        x = self
+        while x:
+            if x._visible == False:
+                return False
+            x = x.parent
+        return True
+
+    def hide(self, *args):
+        if self._visible:
+            self._visible = False
+            self.parent.remove_child(self)
+            self.parent.mark_redraw()
+
+    def show(self, *args):
+        if not self._visible:
+            self._visible = True
+            self.parent.add_child(self)
+            self.parent.mark_redraw()
+
     @property
     def pos(self):
         return self._pos
@@ -74,7 +95,7 @@ class UIBase(EventHandler, pg.sprite.Sprite):
         self.size = size
         self.image = pg.Surface(self.size).convert_alpha()
         self.ownImage = self.image.copy()
-        self.rect = self.image.get_rect()
+        self.rect = pg.Rect(self.pos, size)
         self.mark_redraw()
 
     def redraw(self, *args):
@@ -88,15 +109,9 @@ class UIBase(EventHandler, pg.sprite.Sprite):
         """ Update the affected area.
             If readlly updated, return True, else False
         """
-        if not self._visible and not self._needRedraw:
-            return False
-
         if self._needRedraw:
             self.redraw()
             self._needRedraw = 0
-        if not self._visible:
-            return True
-
         image = self.image
         ownImage = self.ownImage
         self.rect.topleft = self.pos
@@ -111,8 +126,7 @@ class UIBase(EventHandler, pg.sprite.Sprite):
             image.blit(ownImage, (0, 0))
         # sort the childs by their level, render the lowwer level ones first.
         for child in reversed(self.childs):
-            if child._visible:
-                image.blit(child.image, child.rect)
+            image.blit(child.image, child.rect)
         return True
 
     def _child_cmp(self, c1, c2):

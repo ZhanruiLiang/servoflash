@@ -1,5 +1,5 @@
 from ui import *
-from focus import Focusable
+from focus import next_focus, Focusable
 from button import Button, TransButton
 from label import Label
 from timer import Timer
@@ -57,6 +57,11 @@ class InputBox(UIBase, Focusable):
             self.paste_from_X()
         elif event.key == pg.K_c and (event.mod & pg.KMOD_CTRL):
             self.copy_to_X()
+        elif event.key == K_RETURN:
+            if event.mod & KMOD_SHIFT:
+                focus.set_focus(focus.prev_focus())
+            else:
+                focus.set_focus(focus.next_focus())
         elif event.unicode in self.chars:
             self.text = self.text + str(event.unicode)
         self.txtLabel.text = self.text

@@ -10,10 +10,8 @@ def barker(msg):
     def bark(*args):
         print msg, args
     return bark
-def callback1(e):
-    label.text = e.unicode
 
-root = Root(bgcolor=(0x3f, 0xff, 0xff, 0xff), size=(800, 600))
+root = Root(bgcolor=(0xef, 0xef, 0xff, 0xff), size=(800, 600))
 label = Label(root, text="hello", pos=(300, 200), size=(100, 30))
 label = Label(root, text="world", pos=(300, 250), size=(100, 30), 
         align=Label.ALIGN_LEFT)
@@ -21,8 +19,12 @@ label = Label(root, text="david", pos=(300, 300), size=(100, 30),
         align=Label.ALIGN_RIGHT)
 
 button = Button(root, caption="Click Me", pos=(300, 400), size=(100, 30))
-button.bind(EV_CLICK, barker("How dare you!"))
-root.bind(EV_KEYPRESS, callback1)
+button.bind_command(barker("How dare you!"))
+def quit(event):
+    if event.type == KEYDOWN:
+        if event.key == K_q:
+            root.quit()
+root.bind(EV_KEYPRESS, quit, BLK_PRE_BLOCK)
 src = (
 """
 The textbox works!
@@ -75,10 +77,26 @@ inputbox = InputBox(root, pos=(20, 250), size=(50, 20))
 inputbox = InputBox(root, pos=(20, 300), size=(40, 20))
 inputbox = InputBox(root, pos=(20, 350), size=(30, 20))
 
-menu = Menu(root, pos=(10, 10), vertical=False)
+menu = Menu(root, level=1000, pos=(10, 10), margin=2, itemsize=(120, 28), vertical=True)
 menu.add_item('bark1', barker('bark1'))
 menu.add_item('bark2', barker('bark2'))
 menu.add_item('bark3', barker('bark3'))
+menu.add_item('bark3', barker('bark3'))
+menu.add_item('bark3', barker('bark3'))
+menu.add_item('bark3', barker('bark3'))
+menu.add_item('bark3', barker('bark3'))
+menu.add_item('bark3', barker('bark3'))
+menu.hide()
+
+def show_menu(event):
+    if menu.is_visible():
+        menu.pos = event.pos
+    else:
+        menu.pos = event.pos
+        menu.show()
+
+root.bind(EV_RCLICK, show_menu, BLK_POST_BLOCK)
+root.bind(EV_CLICK, menu.hide, BLK_POST_BLOCK)
 
 root.mainloop()
 

@@ -13,6 +13,10 @@ class DragBar(UIBase):
             blockwidth='10',
             size='(150, 20)',
             )
+    ArgsOrd = ord_join(UIBase.ArgsOrd,
+            ['color', 'bgcolor', 'hovercolor', 
+                'blockwidth', 'minvalue', 'maxvalue','vertical', 'size', 'value']
+            )
     @property
     def percent(self):
         return float(self.value - self.minvalue) / (self.maxvalue - self.minvalue)
@@ -23,20 +27,17 @@ class DragBar(UIBase):
 
     @value.setter
     def value(self, v):
-        try:
-            self._value = max(self.minvalue, min(self.maxvalue, v))
-            bw = self.blockwidth
-            if self.vertical:
-                w = self.size[1]
-                self.blockButton.pos = V2I((0, self.percent * (w - bw)))
-            else:
-                w = self.size[0]
-                self.blockButton.pos = V2I((self.percent * (w - bw), 0))
-            self.redraw()
-            for callback in self._on_change_callbacks:
-                callback()
-        except AttributeError:
-            self._value = v
+        self._value = max(self.minvalue, min(self.maxvalue, v))
+        bw = self.blockwidth
+        if self.vertical:
+            w = self.size[1]
+            self.blockButton.pos = V2I((0, self.percent * (w - bw)))
+        else:
+            w = self.size[0]
+            self.blockButton.pos = V2I((self.percent * (w - bw), 0))
+        self.redraw()
+        for callback in self._on_change_callbacks:
+            callback()
 
     def init(self):
         self.backButton = back = TransButton(
@@ -47,34 +48,46 @@ class DragBar(UIBase):
             blockSize = (self.size[0], self.blockwidth)
         self.blockButton = block = Button(
                 self, level=12, size=blockSize, color=self.color, caption='')
-        back.bind(EV_CLICK, self.drag_to, BLK_POST_BLOCK)
-        back.bind(EV_DRAGOVER, self.drag_to, BLK_POST_BLOCK)
         back.bind(EV_MOUSEDOWN, self.scroll, BLK_POST_BLOCK)
+        back.bind(EV_DRAGOVER, self.drag_to, BLK_POST_BLOCK)
+        block.bind(EV_MOUSEDOWN, self.start_drag, BLK_PRE_BLOCK)
+        block.bind(EV_MOUSEUP, self.stop_drag, BLK_PRE_BLOCK)
         self.redraw()
 
         self._on_change_callbacks = []
+        self._draging = False
+
+    def start_drag(self, event):
+        if not self._draging:
+            self._draging = True
+
+    def stop_drag(self, event):
+        self._draging = False
 
     def scroll(self, event):
-        if event.type not in (BTN_MOUSEUP, BTN_MOUSEDOWN): 
-            return
         vlen = self.maxvalue - self.minvalue
         if event.button == BTN_MOUSEUP:
             self.value -= 1 + vlen / 100
-        else: 
+        elif event.button == BTN_MOUSEDOWN: 
             self.value += 1 + vlen / 100
+        elif event.button == BTN_MOUSELEFT:
+            self._draging = True
+            self.drag_to(event)
+            self._draging = False
 
     def drag_to(self, event):
-        w, h = self.size
-        x, y = self.get_local_pos_at(event.pos)
-        bw2 = self.blockwidth / 2
-        if self.vertical:
-            h, w = w, h
-            x, y = y, x
-        if w != 2 * bw2:
-            percent = max(0, float(x - bw2) / (w - 2 * bw2))
-        else:
-            percent = 0
-        self.value = int(self.minvalue + (self.maxvalue - self.minvalue) * percent)
+        if self._draging:
+            w, h = self.size
+            x, y = self.get_local_pos_at(event.pos)
+            bw2 = self.blockwidth / 2
+            if self.vertical:
+                h, w = w, h
+                x, y = y, x
+            if w != 2 * bw2:
+                percent = max(0, float(x - bw2) / (w - 2 * bw2))
+            else:
+                percent = 0
+            self.value = int(self.minvalue + (self.maxvalue - self.minvalue) * percent)
 
     def bind_on_change(self, callback):
         self._on_change_callbacks.append(callback)

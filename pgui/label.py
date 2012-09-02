@@ -3,13 +3,18 @@ from ui import *
 __metaclass__ = type
 
 class Label(UIBase):
+    ALIGN_CENTER = 0
+    ALIGN_LEFT = 1
+    ALIGN_RIGHT = 2
+
     AllArgs = update_join(UIBase.AllArgs, 
+            align='self.ALIGN_CENTER',
             text='""',
             bgcolor='(0x88, 0x88, 0x88, 0xff)',
             )
     Font = pg.font.Font('MonospaceTypewriter.ttf', 11)
     ArgsOrd = ord_join(UIBase.ArgsOrd,
-            ['bgcolor', 'size', 'text']
+            ['align', 'bgcolor', 'size', 'text']
             )
     @property
     def text(self):
@@ -26,8 +31,14 @@ class Label(UIBase):
             image.fill(self.bgcolor)
         else:
             txt = self.Font.render(self.text, 1, self.color)
-            txtsize = self.Font.size(self.text)
+            tw, th = self.Font.size(self.text)
+            w, h = self.size
             # draw bg
             image.fill(self.bgcolor)
-            image.blit(txt, (V2I(self.size) - txtsize)/2)
+            if self.align == self.ALIGN_CENTER:
+                image.blit(txt, ((w - tw)/2, (h - th)/2))
+            elif self.align == self.ALIGN_LEFT:
+                image.blit(txt, (2, (h - th)/2))
+            else:
+                image.blit(txt, (w - 2 - tw, (h - th)/2))
         self._redrawed = 1

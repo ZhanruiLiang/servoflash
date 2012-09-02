@@ -11,14 +11,23 @@ class Root(UIBase):
     ArgsOrd = ord_join(UIBase.ArgsOrd,
             ['parent', 'caption', 'size']
             )
+    assert sorted(AllArgs.keys()) == sorted(ArgsOrd)
+
     def __init__(self, *args, **dargs):
         super(Root, self).__init__(None, *args, **dargs)
 
     def init(self):
         pg.display.set_caption(self.caption)
+        pg.key.set_repeat(400, 50)
         self._quit = False
         self._underMouse = []
         self._timers = []
+
+    def tab_focus(self, event):
+        if event.mod & KMOD_SHIFT:
+            focus.set_focus(focus.prev_focus())
+        else:
+            focus.set_focus(focus.next_focus())
 
     def resize(self, size):
         self.size = size
@@ -79,16 +88,18 @@ class Root(UIBase):
                 print e
             self._underMouse = underMouse
             for t in types:
-                if t == EV_KEYPRESS and focus.get_focus() is not None:
-                    # feed input into focused object
-                    focus.get_focus().input(e)
+                if t == EV_KEYPRESS:
+                    if e.key == K_TAB:
+                        self.tab_focus(e)
+                    elif focus.get_focus() is not None:
+                        # feed input into focused object
+                        focus.get_focus().input(e)
                 else:
                     self.on_event(t, e) # invoke the handler
 
     def mainloop(self):
         self._quit = False
         tm = pg.time.Clock()
-        pg.key.set_repeat(1000, 200)
         while not self._quit:
             self.handle_event()
             #update timers

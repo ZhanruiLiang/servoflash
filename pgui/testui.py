@@ -4,6 +4,7 @@ from label import *
 from dragbar import *
 from textbox import TextBox
 from inputbox import InputBox
+from menu import Menu
 
 def barker(msg):
     def bark(*args):
@@ -14,7 +15,10 @@ def callback1(e):
 
 root = Root(bgcolor=(0x3f, 0xff, 0xff, 0xff), size=(800, 600))
 label = Label(root, text="hello", pos=(300, 200), size=(100, 30))
-label.bind(EV_CLICK, barker('mouse click'))
+label = Label(root, text="world", pos=(300, 250), size=(100, 30), 
+        align=Label.ALIGN_LEFT)
+label = Label(root, text="david", pos=(300, 300), size=(100, 30), 
+        align=Label.ALIGN_RIGHT)
 
 button = Button(root, caption="Click Me", pos=(300, 400), size=(100, 30))
 button.bind(EV_CLICK, barker("How dare you!"))
@@ -67,6 +71,14 @@ def scroll(e):
 # drag.bind_on_change(lambda: setattr(button, "size", (5*(1 + int(drag.value)), 30)))
 
 inputbox = InputBox(root, pos=(20, 200), size=(60, 20))
+inputbox = InputBox(root, pos=(20, 250), size=(50, 20))
+inputbox = InputBox(root, pos=(20, 300), size=(40, 20))
+inputbox = InputBox(root, pos=(20, 350), size=(30, 20))
+
+menu = Menu(root, pos=(10, 10), vertical=False)
+menu.add_item('bark1', barker('bark1'))
+menu.add_item('bark2', barker('bark2'))
+menu.add_item('bark3', barker('bark3'))
 
 root.mainloop()
 

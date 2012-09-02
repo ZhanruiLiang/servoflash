@@ -50,14 +50,6 @@ class TextBox(UIBase):
             for line in self.text.split('\n'):
                 # find max i, font.size(line[:i+1]) <= width
                 while line:
-                    # w = 0
-                    # for i in xrange(len(line)):
-                    #     w += font.size(line[i])[0]
-                    #     if w > width:
-                    #         break
-                    # else:
-                    #     lines.append(line)
-                    #     break
                     i = width / cw
                     lines.append(line[:i])
                     line = line[i:]

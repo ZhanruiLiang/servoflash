@@ -4,20 +4,25 @@ from button import Button, TransButton
 from label import Label
 from timer import Timer
 from animate import ColorAnimate
-import os, subprocess
+import string
 
 class InputBox(UIBase, Focusable):
+    DEFAULT_CHARS = string.letters + string.digits + r' -=!@#$%^&*()_+|\{}[]`~,./<>?'
+
     AllArgs = update_join(UIBase.AllArgs, 
             text="''",
+            chars="self.DEFAULT_CHARS",
             blinkcolor="(0x9f, 0x9f, 0xff, 0xff)",
             bgcolor="(0xff, 0xff, 0xff, 0xff)",
             color="(0, 0, 0, 0xff)",
             )
     ArgsOrd = ord_join(UIBase.ArgsOrd,
-            ['blinkcolor', 'text']
+            ['chars', 'blinkcolor', 'text']
             )
-    pg.scrap.init()
+    assert sorted(AllArgs.keys()) == sorted(ArgsOrd)
+
     def init(self):
+        Focusable.__init__(self)
         self.minWidth = self.size[0]
         self.minHeight = self.size[1]
 
@@ -46,15 +51,13 @@ class InputBox(UIBase, Focusable):
         self.blinker = ColorAnimate(self.blinker.get(), self.bgcolor)
 
     def input(self, event):
-        print bin(event.mod), bin(KMOD_CTRL), len(event.unicode)
-        if event.key == pg.K_BACKSPACE:
+        if event.key in (pg.K_BACKSPACE, pg.K_DELETE, pg.K_LEFT):
             self.text = self.text[:-1]
         elif event.key == pg.K_v and (event.mod & pg.KMOD_CTRL):
             self.paste_from_X()
         elif event.key == pg.K_c and (event.mod & pg.KMOD_CTRL):
             self.copy_to_X()
-        # elif event.key != pg.K_RETURN:
-        elif len(event.unicode) == 1:
+        elif event.unicode in self.chars:
             self.text = self.text + str(event.unicode)
         self.txtLabel.text = self.text
         self.mark_redraw()
@@ -96,13 +99,9 @@ class InputBox(UIBase, Focusable):
             self.resize((w1, h1))
 
     def copy_to_X(self):
-        os.system("echo '%s' |xsel -b" % self.text)
-        print 'copied [%s] to system clipboard' % (self.text)
+        copy_to_X(self.text)
 
     def paste_from_X(self):
-        p = subprocess.Popen('xsel -b', shell=True, stdout=subprocess.PIPE)
-        p.wait()
-        self.text = p.stdout.read().rstrip()
+        self.text = paste_from_X()
         self.txtLabel.text = self.text
         self.mark_redraw()
-        print 'copied [%s] from system clipboard' % (self.text)

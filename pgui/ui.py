@@ -2,66 +2,10 @@ import pygame as pg
 from vec2di import V2I
 from uiconsts import *
 from eventh import *
+from utils import *
 import focus
 # using new style class
 __metaclass__ = type
-
-# class Error(BaseException):
-#     def __init__(self, msg):
-#         self.msg = msg
-#     def __repr__(self):
-#         return msg
-Error = Exception
-
-pg.display.set_mode((1, 1), VFLAG, 32)
-
-def update_join(d1, d2=None, **dargs):
-    " update d1 with d2 -> d3 "
-    d3 = d1.copy()
-    if dargs:
-        d2 = dargs
-    for k, v in d2.iteritems():
-        d3[k] = v
-    return d3
-
-def ord_join(ord1, ord2):
-    result = []
-    ord1 = ord1[::-1]
-    ord2 = ord2[::-1]
-    while ord1 and ord2:
-        x = ord1[-1]
-        if x not in ord2:
-            result.append(x)
-            del ord1[-1]
-        else:
-            y = ord2[-1]
-            if x == y:
-                result.append(x)
-                del ord1[-1]
-                del ord2[-1]
-            elif y not in ord1:
-                result.append(y)
-                del ord2[-1]
-            else:
-                raise Error("cyclic order join: joined: %s, left: %s, %s" % (
-                    result, ord1[::-1], ord2[::-1]))
-    if ord1: result += ord1[::-1]
-    else: result += ord2[::-1]
-    return result
-
-def concat_func(func1, func2):
-    def func(*args, **dargs):
-        func1(*args, **dargs)
-        func2(*args, **dargs)
-    return func
-
-def color_eq(c1, c2):
-    d = sum((x1 - x2) ** 2 for x1, x2 in zip(c1, c2))
-    return d < 30
-
-# step color c1 to color c2
-def step_color(c1, c2, k=0.30):
-    return tuple(int(x1 + (x2 - x1) * k) for x1, x2 in zip(c1, c2))
 
 class UIBase(EventHandler, pg.sprite.Sprite):
     AllArgs = update_join({},
@@ -75,6 +19,8 @@ class UIBase(EventHandler, pg.sprite.Sprite):
         ['level', 'color', 'bgcolor', 'pos', 'size']
         )
 
+    assert sorted(AllArgs.keys()) == sorted(ArgsOrd)
+
     pg.font.init()
     pg.display.init()
     ID = 0
@@ -84,8 +30,8 @@ class UIBase(EventHandler, pg.sprite.Sprite):
         UIBase.ID += 1
         self.parent = parent
         self._redrawed = 1
+        self._visible = True
         # loop through the ArgsOrd list and assign args
-        print self.ArgsOrd
         for attr in self.ArgsOrd:
             if attr in dargs:
                 setattr(self, attr, dargs[attr])
@@ -142,9 +88,14 @@ class UIBase(EventHandler, pg.sprite.Sprite):
         """ Update the affected area.
             If readlly updated, return True, else False
         """
+        if not self._visible and not self._needRedraw:
+            return False
+
         if self._needRedraw:
             self.redraw()
             self._needRedraw = 0
+        if not self._visible:
+            return True
 
         image = self.image
         ownImage = self.ownImage
@@ -160,7 +111,8 @@ class UIBase(EventHandler, pg.sprite.Sprite):
             image.blit(ownImage, (0, 0))
         # sort the childs by their level, render the lowwer level ones first.
         for child in reversed(self.childs):
-            image.blit(child.image, child.rect)
+            if child._visible:
+                image.blit(child.image, child.rect)
         return True
 
     def _child_cmp(self, c1, c2):

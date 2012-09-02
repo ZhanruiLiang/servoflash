@@ -2,22 +2,28 @@ from ui import *
 from aarrect import AAfilledRoundedRect
 from timer import Timer
 from animate import ColorAnimate
+from label import Label
 
 class Button(UIBase):
+    ALIGN_CENTER = Label.ALIGN_CENTER
+    ALIGN_LEFT = Label.ALIGN_LEFT
+    ALIGN_RIGHT = Label.ALIGN_RIGHT
+
     AllArgs = update_join(UIBase.AllArgs, 
             bgcolor='(0x58, 0x58, 0x58, 0xff)',
             hovercolor='(0x88, 0xff, 0x88, 0xff)',
             presscolor='(0x10, 0x2f, 0x10, 0xff)',
             caption='"button%s"%self.id',
+            align='self.ALIGN_CENTER',
             )
     ArgsOrd = ord_join(UIBase.ArgsOrd,
-            ['bgcolor', 'hovercolor', 'presscolor', 'caption']
+            ['hovercolor', 'presscolor', 'caption', 'align']
             )
 
     Font = pg.font.Font('MonospaceTypewriter.ttf', 11)
 
     def init(self):
-        self.txt = self.Font.render(self.caption, 1, self.color)
+        self.label = Label(self, text=self.caption, align=self.align, bgcolor=COLOR_TRANS, size=self.size)
         self._underMouse = False
         self.bind(EV_MOUSEOVER, self.on_mouse_over, BLK_PRE_NONBLOCK)
         self.bind(EV_MOUSEDOWN, self.on_mouse_down, BLK_PRE_NONBLOCK)
@@ -30,11 +36,7 @@ class Button(UIBase):
     def redraw(self, *args):
         image = self.ownImage
         image.fill(COLOR_TRANS)
-        try:
-            AAfilledRoundedRect(image, self.curColor.get(), ((0, 0), self.size), 0.3)
-            image.blit(self.txt, (V2I(self.size) - self.txt.get_size())/2)
-        except AttributeError:
-            pass
+        AAfilledRoundedRect(image, self.curColor.get(), ((0, 0), self.size), 0.3)
         self._redrawed = 1
 
     def animate(self, dt):
@@ -63,7 +65,7 @@ class Button(UIBase):
             self.on_mouse_over(event)
 
 class TransButton(Button):
-    AllArgs = update_join(UIBase.AllArgs, 
+    AllArgs = update_join(Button.AllArgs, 
             caption='""',
             bgcolor='COLOR_TRANS',
             hovercolor='COLOR_TRANS',

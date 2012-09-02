@@ -20,16 +20,14 @@ class Root(UIBase):
         self._underMouse = []
         self._timers = []
 
-    @property
-    def size(self):
-        return self._size
-
-    @size.setter
-    def size(self, size):
-        self._size = size
-        self.image = pg.display.set_mode(self._size, pg.RESIZABLE, 32)
+    def resize(self, size):
+        self.size = size
+        self.image = pg.display.set_mode(self.size, VFLAG, 32)
         self.rect = self.image.get_rect()
         self.ownImage = self.image.copy()
+        self.mark_redraw()
+
+    def redraw(self):
         self.ownImage.fill(self.bgcolor)
         self._redrawed = 1
 
@@ -90,7 +88,6 @@ class Root(UIBase):
     def mainloop(self):
         self._quit = False
         tm = pg.time.Clock()
-        self.redraw()
         pg.key.set_repeat(1000, 200)
         while not self._quit:
             self.handle_event()

@@ -33,14 +33,14 @@ class Button(UIBase):
         try:
             AAfilledRoundedRect(image, self.curColor.get(), ((0, 0), self.size), 0.3)
             image.blit(self.txt, (V2I(self.size) - self.txt.get_size())/2)
-        except:
+        except AttributeError:
             pass
         self._redrawed = 1
 
     def animate(self, dt):
         if self.curColor.is_end():
             return
-        self.redraw()
+        self.mark_redraw()
 
     def on_mouse_over(self, event):
         if not self._underMouse:

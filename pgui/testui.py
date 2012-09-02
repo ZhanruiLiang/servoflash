@@ -66,7 +66,7 @@ def scroll(e):
 # drag.bind_on_change(lambda: textbox.scroll_to(int(drag.value)))
 # drag.bind_on_change(lambda: setattr(button, "size", (5*(1 + int(drag.value)), 30)))
 
-# inputbox = InputBox(root, pos=(20, 200), size=(60, 20))
+inputbox = InputBox(root, pos=(20, 200), size=(60, 20))
 
 root.mainloop()
 

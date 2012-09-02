@@ -18,7 +18,7 @@ class Label(UIBase):
     @text.setter
     def text(self, new):
         self._text = new
-        self.redraw()
+        self.mark_redraw()
 
     def redraw(self, *args):
         image = self.ownImage

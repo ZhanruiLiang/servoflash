@@ -2,6 +2,7 @@ import pygame as pg
 from vec2di import V2I
 from uiconsts import *
 from eventh import *
+import focus
 # using new style class
 __metaclass__ = type
 
@@ -11,6 +12,8 @@ __metaclass__ = type
 #     def __repr__(self):
 #         return msg
 Error = Exception
+
+pg.display.set_mode((1, 1), VFLAG, 32)
 
 def update_join(d1, d2=None, **dargs):
     " update d1 with d2 -> d3 "
@@ -45,11 +48,6 @@ def ord_join(ord1, ord2):
     if ord1: result += ord1[::-1]
     else: result += ord2[::-1]
     return result
-
-def func_id(value):
-    def func(*args, **dargs):
-        return value
-    return func
 
 def concat_func(func1, func2):
     def func(*args, **dargs):
@@ -98,10 +96,14 @@ class UIBase(EventHandler, pg.sprite.Sprite):
 
         self.childs = []
         self._redrawed = 0
+        self.resize(self.size)
+        self.mark_redraw()
         self.init()
-        self.redraw()
+        # self.redraw()
         if parent is not None:
             self.parent.add_child(self)
+        # bind function to cancal focus when click on empty place
+        self.bind(EV_CLICK, lambda e: focus.set_focus(None), BLK_POST_BLOCK)
 
     def init(self):
         pass
@@ -117,38 +119,36 @@ class UIBase(EventHandler, pg.sprite.Sprite):
             self.rect.topleft = self._pos
             self._redrawed = 1
 
-    @property
-    def size(self):
-        return self._size
-
-    @size.setter
-    def size(self, s):
-        self.resize(s)
-
-    def resize(self, s):
-        self._size = s
-        self.image = pg.Surface(self._size).convert_alpha()
-        self.ownImage = self.image.copy()
-        self.rect = self.image.get_rect()
-
     def __repr__(self, shows=['id', 'pos', 'level']):
         args = ','.join('%s=%s' % (attr, getattr(self, attr)) 
                             for attr in shows if attr != 'parent' and hasattr(self, attr))
         return '%s(%s)' % (self.__class__.__name__, args)
 
+    def resize(self, size):
+        self.size = size
+        self.image = pg.Surface(self.size).convert_alpha()
+        self.ownImage = self.image.copy()
+        self.rect = self.image.get_rect()
+        self.mark_redraw()
+
     def redraw(self, *args):
         # redraw ownImage
         self._redrawed = 1
+
+    def mark_redraw(self):
+        self._needRedraw = 1
 
     def update(self, *args):
         """ Update the affected area.
             If readlly updated, return True, else False
         """
+        if self._needRedraw:
+            self.redraw()
+            self._needRedraw = 0
+
         image = self.image
         ownImage = self.ownImage
         self.rect.topleft = self.pos
-        if self.size != image.get_size():
-            self.redraw()
 
         affected = any([c.update(*args) for c in self.childs])
         affected = affected or self._redrawed

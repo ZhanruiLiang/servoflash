@@ -6,7 +6,8 @@ def set_focus(obj):
     if _focus is not None:
         _focus.on_lost_focus()
     _focus = obj
-    _focus.on_focus()
+    if obj is not None:
+        obj.on_focus()
 
 def get_focus():
     return _focus

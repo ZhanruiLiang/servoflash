@@ -1,3 +1,4 @@
+from pygame.locals import *
 # event types
 EV_CLICK = 'click'
 EV_RCLICK = 'rclick'
@@ -40,3 +41,6 @@ DEFAULT_FONT = 'MonospaceTypewriter.ttf'
 
 MAX_LEVEL = 100000
 FPS = 20
+
+# video flag
+VFLAG = RESIZABLE

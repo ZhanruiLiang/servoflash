@@ -4,6 +4,8 @@ from button import Button, TransButton
 from label import Label
 from timer import Timer
 from animate import ColorAnimate
+import os, subprocess
+
 class InputBox(UIBase, Focusable):
     AllArgs = update_join(UIBase.AllArgs, 
             text="''",
@@ -14,7 +16,7 @@ class InputBox(UIBase, Focusable):
     ArgsOrd = ord_join(UIBase.ArgsOrd,
             ['blinkcolor', 'text']
             )
-
+    pg.scrap.init()
     def init(self):
         self.minWidth = self.size[0]
         self.minHeight = self.size[1]
@@ -44,13 +46,18 @@ class InputBox(UIBase, Focusable):
         self.blinker = ColorAnimate(self.blinker.get(), self.bgcolor)
 
     def input(self, event):
+        print bin(event.mod), bin(KMOD_CTRL), len(event.unicode)
         if event.key == pg.K_BACKSPACE:
             self.text = self.text[:-1]
-        elif event.key != pg.K_RETURN:
+        elif event.key == pg.K_v and (event.mod & pg.KMOD_CTRL):
+            self.paste_from_X()
+        elif event.key == pg.K_c and (event.mod & pg.KMOD_CTRL):
+            self.copy_to_X()
+        # elif event.key != pg.K_RETURN:
+        elif len(event.unicode) == 1:
             self.text = self.text + str(event.unicode)
-        print self.text
         self.txtLabel.text = self.text
-        self.redraw()
+        self.mark_redraw()
 
     def animate(self, dt):
         bg = self.bgLabel
@@ -59,7 +66,6 @@ class InputBox(UIBase, Focusable):
             bg.bgcolor = blinker.get()
             bg.redraw()
             if blinker.is_end():
-                print self._blinkState
                 if self._blinkState == 0:
                     self.blinker = ColorAnimate(self.blinkcolor, self.bgcolor)
                     self._blinkState = 1
@@ -90,7 +96,13 @@ class InputBox(UIBase, Focusable):
             self.resize((w1, h1))
 
     def copy_to_X(self):
-        pass
+        os.system("echo '%s' |xsel -b" % self.text)
+        print 'copied [%s] to system clipboard' % (self.text)
 
     def paste_from_X(self):
-        pass
+        p = subprocess.Popen('xsel -b', shell=True, stdout=subprocess.PIPE)
+        p.wait()
+        self.text = p.stdout.read().rstrip()
+        self.txtLabel.text = self.text
+        self.mark_redraw()
+        print 'copied [%s] from system clipboard' % (self.text)

@@ -56,7 +56,6 @@ class Root(UIBase):
     def handle_event(self):
         events = pg.event.get()
         for e in events:
-            print e
             Keys.update(e)
             # print 'pressed', Keys.get_pressed()
             mouse.update(e)
@@ -67,7 +66,7 @@ class Root(UIBase):
             self.get_all_under_mouse(mouse.pos, underMouse.append)
             for ui in self._underMouse:
                 if ui not in underMouse:
-                    # mouse move out this ui just now
+                    # mouse move out of this ui just now
                     ui.on_event(EV_MOUSEOUT, e)# invoke the handler
                     if mouse.is_draging():
                         # drag out
@@ -94,7 +93,6 @@ class Root(UIBase):
             elif e.type == pg.VIDEORESIZE:
                 pg.display.set_mode(e.size, VFLAG, 32)
                 self.resize(e.size)
-                print e
             self._underMouse = underMouse
             for t in types:
                 flag = 0

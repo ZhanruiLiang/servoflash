@@ -1,18 +1,18 @@
-from root import Root
-from button import *
-from label import *
-from dragbar import *
-from textbox import TextBox
-from inputbox import InputBox
-from menu import Menu
-from servo import Servo
+from pgui.root import Root
+from pgui.button import *
+from pgui.label import *
+from pgui.dragbar import *
+from pgui.textbox import TextBox
+from pgui.inputbox import InputBox
+from pgui.menu import Menu
+from servo import ServoControl, ServoBoard
 
 def barker(msg):
     def bark(*args):
         print msg, args
     return bark
 
-root = Root(bgcolor=(0xef, 0xef, 0xff, 0xff), size=(800, 600))
+root = Root(bgcolor=(0xef, 0xef, 0xff, 0xff), size=(1024, 768))
 # label = Label(root, text="hello", pos=(300, 200), size=(100, 30))
 # label = Label(root, text="world", pos=(300, 250), size=(100, 30), 
 #         align=Label.ALIGN_LEFT)
@@ -96,9 +96,9 @@ def show_menu(event):
 root.bind(EV_RCLICK, show_menu, BLK_POST_BLOCK)
 root.bind(EV_CLICK, menu.hide, BLK_POST_BLOCK)
 
-ser1 = Servo(root, sid=3, bias=512, size=(630, 100), pos=(100, 20), direction=1)
-ser2 = Servo(root, sid=3, bias=512, size=(630, 100), pos=(100, 122), direction=1)
-ser3 = Servo(root, sid=3, bias=512, size=(630, 100), pos=(100, 224), direction=1)
-ser1 = Servo(root, sid=3, bias=512, size=(630, 100), pos=(100, 20), direction=1)
+controller = ServoControl(root, size=(800, 700), pos=(200, 10))
+controller.new_servos()
+# ser1 = ServoBoard(root, sid=3, bias=512, size=(630, 100), pos=(100, 20), direction=1)
+# ser2 = ServoBoard(root, sid=3, bias=512, size=(630, 100), pos=(100, 122), direction=1)
 # 
 root.mainloop()

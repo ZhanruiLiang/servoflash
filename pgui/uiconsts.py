@@ -1,4 +1,8 @@
 from pygame.locals import *
+import os
+#
+RES_DIR = '%s' % (os.path.split(__file__)[0])
+print RES_DIR
 # event types
 EV_CLICK = 'click'
 EV_RCLICK = 'rclick'
@@ -44,3 +48,5 @@ FPS = 20
 
 # video flag
 VFLAG = RESIZABLE
+SCREEN_W = 800
+SCREEN_H = 600

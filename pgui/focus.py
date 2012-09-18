@@ -12,6 +12,8 @@ def set_focus(obj):
     return obj
 
 def get_focus():
+    if _focus is not None and not _focus.is_visible():
+        set_focus(None)
     return _focus
 
 def next_focus():

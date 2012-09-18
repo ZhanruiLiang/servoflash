@@ -1,0 +1,43 @@
+servos:
+    - id: 101
+      bias: 512
+      min: 212
+      max: 812
+      direction: 1
+
+    - id: 102
+      bias: 512
+      min: 512
+      max: 512
+      direction: 1
+
+    - id: 103
+      bias: 240
+      min: 100
+      max: 575
+      direction: 1
+
+    - id: 104
+      bias: 631
+      min: 250
+      max: 638
+      direction: 1
+
+    - id: 105
+      bias: 512
+      min: 512
+      max: 512
+      direction: 1
+
+    - id: 106
+      bias: 800
+      min: 485
+      max: 960
+      direction: 1
+
+    - id: 107
+      bias: 352
+      min: 400
+      max: 715
+      direction: 1
+

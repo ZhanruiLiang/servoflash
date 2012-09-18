@@ -14,7 +14,8 @@ class EventHandler:
         """
         Bind an event to this object.
         eventType: event-types starts with EV_ .
-        handler: a callback, with a event as the only parameter
+        handler: a callback, with a event as the only parameter. 
+                 If the handler returns True, then it's considered not executed.
         blockMode: a block mode, all availiable modes are BLK_* in uiconst.py
         """
         if eventType not in self._eventHandlers:
@@ -58,7 +59,8 @@ class EventHandler:
                     handler(event)
                 if blocked: return True
                 # pass the event to childs
-                # NOTE: the `any` function on a sequence generator is lazy
+                # NOTE: the `any` function on a sequence generator is lazy.
+                #       So a child may block its brother. So the childs list should be sorted from high level to low.
                 blocked = any(child.on_event(eventType, event) for child in self.childs)
                 if blocked: return True
 

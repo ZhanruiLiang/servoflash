@@ -28,11 +28,14 @@ class TextBox(UIBase):
                 self.scroll(-d)
             elif e.button == BTN_MOUSEDOWN:
                 self.scroll(d)
-        self.bind(EV_MOUSEUP, scroller)
+        # self.bind(EV_MOUSEUP, scroller)
         self.bind(EV_MOUSEDOWN, scroller)
-        self.bind(EV_MOUSEOVER, func_id(True), BLK_PRE_BLOCK)
-        self.bind(EV_CLICK, func_id(True), BLK_PRE_BLOCK)
-        self.bind(EV_RCLICK, func_id(True), BLK_PRE_BLOCK)
+        # self.bind(EV_MOUSEOVER, self.dumb, BLK_PRE_BLOCK)
+        # self.bind(EV_CLICK, self.dumb, BLK_PRE_BLOCK)
+        # self.bind(EV_RCLICK, self.dumb, BLK_PRE_BLOCK)
+
+    def dumb(self, *args):
+        pass
 
     def _create_linepics(self):
         """
@@ -76,9 +79,9 @@ class TextBox(UIBase):
 
     def scroll(self, d):
         self.curline = max(min(self.curline + d, len(self.lines)), 0)
-        self.redraw()
+        self.mark_redraw()
 
     def scroll_to(self, d):
         self.curline = max(min(d, len(self.lines)), 0)
-        self.redraw()
+        self.mark_redraw()
 

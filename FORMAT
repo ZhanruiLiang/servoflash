@@ -1,0 +1,16 @@
+servos pickle format:
+
+{
+    'servos':[
+    {
+        'sid': 1,
+        'bias':0,
+        'direction':1,
+        'interval':(100, 200),
+        'keyFrames':
+            [(a, dti), (a, dti), ...]
+    },
+    ...
+        ]
+}
+

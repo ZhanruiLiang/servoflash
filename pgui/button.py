@@ -22,7 +22,7 @@ class Button(UIBase, Focusable):
             ['hovercolor', 'presscolor', 'caption', 'align', 'image']
             )
 
-    Font = pg.font.Font('MonospaceTypewriter.ttf', 11)
+    Font = pg.font.Font(os.path.join(RES_DIR, 'MonospaceTypewriter.ttf'), 11)
     rsi = RSImage('button_bg.png', 5, 5)
 
     @property
@@ -46,7 +46,7 @@ class Button(UIBase, Focusable):
 
         self.curColor = ColorAnimate((0, 0, 0, 0xff), self.bgcolor)
         Timer.add(Timer(1./FPS, self.animate))
-        self.command = None
+        self.bind(EV_CLICK, self._command, BLK_PRE_BLOCK)
 
     def on_focus(self, *args):
         if not self._underMouse:
@@ -57,18 +57,20 @@ class Button(UIBase, Focusable):
 
     def input(self, e):
         if e.key == K_RETURN:
-            if self.command:
-                self.command(e)
+            self.command(e)
             self.on_mouse_down()
             Timer.add(Timer(0.2, self.on_mouse_up, 1))
         else:
             return True
 
+    def command(self, *args):
+        pass
+
+    def _command(self, *args):
+        self.command(*args)
+
     def bind_command(self, command):
-        if self.command is not None:
-            self.unbind(EV_CLICK, self.command, BLK_PRE_BLOCK)
         self.command = command
-        self.bind(EV_CLICK, command, BLK_PRE_BLOCK)
 
     def resize(self, size):
         super(Button, self).resize(size)

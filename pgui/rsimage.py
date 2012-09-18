@@ -1,5 +1,7 @@
 """ resizable image """
 import  pygame as pg
+import os
+from uiconsts import RES_DIR
 
 class RSImage:
     pg.display.init()
@@ -23,7 +25,10 @@ class RSImage:
                 if cnt == minUse:
                     break
             del cache[f]
-        image = pg.image.load(filename).convert_alpha()
+        try:
+            image = pg.image.load(filename).convert_alpha()
+        except pg.error:
+            image = pg.image.load(os.path.join(RES_DIR, filename)).convert_alpha()
         cache[filename] = (1, image)
         return image
 

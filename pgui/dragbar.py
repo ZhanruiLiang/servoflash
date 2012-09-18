@@ -10,7 +10,7 @@ class DragBar(UIBase):
             bgcolor='(75, 50, 51, 255)',
             hovercolor='(93, 238, 90, 100)',
             color='(97, 127, 100, 255)',
-            blockwidth='10',
+            blockwidth='20',
             size='(150, 20)',
             )
     ArgsOrd = ord_join(UIBase.ArgsOrd,
@@ -29,15 +29,12 @@ class DragBar(UIBase):
     def value(self, v):
         self._value = max(self.minvalue, min(self.maxvalue, v))
         bw = self.blockwidth
-        if self.vertical:
-            w = self.size[1]
-            self.blockButton.pos = V2I((0, self.percent * (w - bw)))
-        else:
-            w = self.size[0]
-            self.blockButton.pos = V2I((self.percent * (w - bw), 0))
-        self.redraw()
-        for callback in self._on_change_callbacks:
-            callback()
+        self.mark_redraw()
+        try:
+            for callback in self._on_change_callbacks:
+                callback()
+        except AttributeError:
+            pass
 
     def init(self):
         self.backButton = back = TransButton(
@@ -99,7 +96,14 @@ class DragBar(UIBase):
         p = self.percent
         image = self.ownImage
         image.fill(self.bgcolor)
+        bw = self.blockwidth
         bw2 = self.blockwidth / 2
+        if self.vertical:
+            w = self.size[1]
+            self.blockButton.pos = V2I((0, self.percent * (w - bw)))
+        else:
+            w = self.size[0]
+            self.blockButton.pos = V2I((self.percent * (w - bw), 0))
         if not self.vertical:
             len, w = self.size
             wMargin = w/2.8

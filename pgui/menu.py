@@ -27,16 +27,17 @@ class Menu(UIBase):
         else:
             self.resize((self.margin, self.itemsize[1] + self.margin * 2))
         Timer.add(Timer(1./FPS, self.animate))
+        self.bind(EV_KEYPRESS, self.hide, BLK_POST_BLOCK)
 
     def add_item(self, name, callback):
         wi, hi = self.itemsize
         margin = self.margin
         if not self.vertical:
             y = margin
-            x = (margin + self.itemsize[0])* len(self.items)
+            x = (self.itemsize[0])* len(self.items)
         else:
             x = margin
-            y = (margin + self.itemsize[1]) * len(self.items) + margin
+            y = (self.itemsize[1]) * len(self.items)
         item = Button(self, caption=name, size=self.itemsize, pos=(x, y), 
                 color=self.color, bgcolor=self.bgcolor,
                 align=Button.ALIGN_CENTER)
@@ -50,9 +51,9 @@ class Menu(UIBase):
         wi, hi = self.itemsize
         margin = self.margin
         if not self.vertical:
-            return (margin + len(self.items) * (wi + margin), self.size[1])
+            return (2 * margin + len(self.items) * wi, self.size[1])
         else:
-            return (self.size[0], (hi + margin) * len(self.items) + margin)
+            return (self.size[0], hi * len(self.items) + margin)
 
     def animate(self, dt):
         if not hasattr(self, 'curSize') or self.curSize.is_end(): return

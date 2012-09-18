@@ -7,7 +7,7 @@ import focus
 # using new style class
 __metaclass__ = type
 
-pg.display.set_mode((10, 10), VFLAG, 32)
+pg.display.set_mode((SCREEN_W, SCREEN_H), VFLAG, 32)
 class UIBase(EventHandler, pg.sprite.Sprite):
     AllArgs = update_join({},
             level='100',
@@ -43,6 +43,7 @@ class UIBase(EventHandler, pg.sprite.Sprite):
 
         self.childs = []
         self._redrawed = 0
+        self._destoryed = False
         self.resize(self.size)
         self.mark_redraw()
         self.init()
@@ -74,6 +75,9 @@ class UIBase(EventHandler, pg.sprite.Sprite):
             self._visible = True
             self.parent.add_child(self)
             self.parent.mark_redraw()
+
+    def destory(self):
+        self._destoryed = True
 
     @property
     def pos(self):
@@ -117,14 +121,15 @@ class UIBase(EventHandler, pg.sprite.Sprite):
         self.rect.topleft = self.pos
 
         affected = any([c.update(*args) for c in self.childs])
-        affected = affected or self._redrawed
+        affected = affected or self._redrawed or any(c._destoryed for c in self.childs)
+        self.childs = [c for c in self.childs if not c._destoryed]
         self._redrawed = 0
         if not affected: 
             return False
         if ownImage:
             image.fill(COLOR_TRANS)
             image.blit(ownImage, (0, 0))
-        # sort the childs by their level, render the lowwer level ones first.
+        # render the lowwer level ones first.
         for child in reversed(self.childs):
             image.blit(child.image, child.rect)
         return True
@@ -136,11 +141,14 @@ class UIBase(EventHandler, pg.sprite.Sprite):
         self.childs.append(child)
         self.childs.sort(cmp=self._child_cmp)
 
-    def update_child(self): 
+    def update_childs(self): 
         self.childs.sort(cmp=self._child_cmp)
 
-    def remove_child(self, child):
-        self.childs.remove(child)
+    def remove_child(self, *args):
+        if not args:
+            args = self.childs[:]
+        for child in args:
+            self.childs.remove(child)
 
     def get_global_pos_at(self, localPos):
         # p0(basic pos) in global

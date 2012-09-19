@@ -1,1 +1,1 @@
-map <F5> :!pyrunner testui.py<Cr>
+map <F5> :!pyrunner ~/python/servoflash/main.py<Cr>

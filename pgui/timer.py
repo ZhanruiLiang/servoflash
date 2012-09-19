@@ -1,5 +1,7 @@
+import pygame as pg
 class Timer(object):
     timers = []
+    clock = pg.time.Clock()
     @staticmethod
     def add(timer):
         Timer.timers.append(timer)
@@ -10,7 +12,8 @@ class Timer(object):
         Timer.timers.remove(timer)
 
     @staticmethod
-    def update_all(dt):
+    def update_all():
+        dt = Timer.clock.tick()/1000.
         for tm in Timer.timers:
             tm.update(dt)
         Timer.timers = [tm for tm in Timer.timers if not tm.is_finished()]

@@ -1,9 +1,12 @@
 from pgui.ui import *
+from pgui.label import Label
+from pgui.inputbox import InputBox
 import random
 import yaml
 import cPickle
 import os
 import shutil
+import math
 
 TIME_STEP = 0.02
 
@@ -16,12 +19,15 @@ class KeyFrame:
 
 class ServoBoard(UIBase):
     LIGHT_COLOR = (204, 178, 181, 0xff)
-    LIGHT_COLOR2 = (220, 200, 193, 0xff)
+    LIGHT_COLOR2 = (220, 200, 193, 0x88)
     DARK_COLOR = (0, 33, 66, 0xff)
     POINT_COLOR = (0xff, 0, 0, 0xff)
+    RULER_COLOR = (240, 230, 150, 255)
+    LABEL_COLOR = (170, 170, 170, 120)
     AllArgs = update_join(UIBase.AllArgs, 
-            selectcolor='(0, 160, 245, 255)',
+            selectcolor='(0, 160, 245, 155)',
             bgcolor='(250, 250, 200, 255)',
+            label='"servo#?"',
             sid='0', # servo id
             bias='0', # servo bias, such that: bias + direction * angle * (1024/360) = actualADValue
             direction='1', 
@@ -31,14 +37,9 @@ class ServoBoard(UIBase):
             )
 
     ArgsOrd = ord_join(UIBase.ArgsOrd,
-            ['selectcolor', 'framewidth', 'sid', 'bias', 'interval', 'direction', 'viewpos']
+            ['selectcolor', 'label', 'framewidth', 'sid', 'bias', 'interval', 'direction', 'viewpos']
             )
     assert sorted(AllArgs.keys()) == sorted(ArgsOrd)
-
-    @staticmethod
-    def connect():
-        #TODO: connect to server
-        pass
 
     def init(self):
         #  a0    |                              
@@ -58,6 +59,9 @@ class ServoBoard(UIBase):
         self._actived = False
         self.selected = None # the selected frame
 
+        self.labelUI = Label(self, text=self.label, 
+                bgcolor=self.LABEL_COLOR, color=(0, 0, 0, 255),
+                pos=(0, 0), size=(80, 20))
         # self.bind(EV_MOUSEDOWN, self.start_drag)
         # self.bind(EV_MOUSEUP, self.end_drag)
         # self.bind(EV_MOUSEOUT, self.end_drag)
@@ -81,10 +85,10 @@ class ServoBoard(UIBase):
         if i + 1 < len(self.keyFrames):
             f1 = self.keyFrames[i]
             f2 = self.keyFrames[i+1]
-            return int(f1.a + (f2.a - f1.a) / f2.dti * dti)
+            return int(f1.a + (f2.a - f1.a) / f1.dti * dti)
         else:
             print 'warning: time %(ti)s not in range.' % locals()
-            return self.keyFrames[i].a
+            return self.keyFrames[-1].a
 
     def select_at(self, pos):
         ti, a = self.screen_pos_to_ta(pos)
@@ -121,16 +125,15 @@ class ServoBoard(UIBase):
             self.keyFrames[i-1].dti += dti
         self.mark_redraw()
 
-    def remove_frame(self, ti, cnt=1):
+    def remove_frame(self, ti):
         i, dti = self.find_ti_pos(ti)
-        if cnt > 1:
-            j, dtj = self.find_ti_pos(ti + cnt - 1)
         if i < len(self.keyFrames):
-            self.keyFrames[i].dti = dti
-            if cnt > 1:
-                if j < len(self.keyFrames):
-                    self.keyFrames[i].dti += self.keyFrames[j].dti - dtj
-        self.mark_redraw()
+            if dti > 0:
+                self.keyFrames[i].dti -= 1
+            elif i > 0:
+                self.keyFrames[i-1].dti += self.keyFrames[i].dti
+                del self.keyFrames[i]
+            self.mark_redraw()
 
     def _redraw_bg(self):
         image = self.bgImage
@@ -138,13 +141,12 @@ class ServoBoard(UIBase):
         w, h = self.size
         w1 = self.framewidth
         # draw the enclosing box rect
-        pg.draw.rect(image, self.LIGHT_COLOR2, ((0, 0), (w, h)), 2)
         pg.draw.rect(image, self.LIGHT_COLOR, ((0, 0), (w, h)), 1)
+
         for x in xrange(0, w, w1):
             # draw a vertical line
-            # pg.draw.line(image, self.LIGHT_COLOR2, (x, 0), (x, h), 2)
+            # pg.draw.line(image, self.LIGHT_COLOR2, (x - w1/2, 0), (x - w1/2, h), 2)
             pg.draw.line(image, self.LIGHT_COLOR, (x - w1/2, 0), (x - w1/2, h), 1)
-
 
     def redraw(self, *args):
         if self.bgImage.get_size() != self.ownImage.get_size():
@@ -156,6 +158,11 @@ class ServoBoard(UIBase):
         i0, dti0 = self.find_ti_pos(self.viewpos)
         w, h = self.size
         w1 = self.framewidth
+
+        # draw the ruler
+        x0 = (5 - self.viewpos) % 5 * w1
+        for x in xrange(x0, w, 5 * w1):
+            pg.draw.rect(image, self.RULER_COLOR, ((x - w1/2 + 1, 0), (w1-2, h)))
 
         if self.selected is not None:
             # draw selected
@@ -262,12 +269,16 @@ class ServoBoard(UIBase):
         if not self._actived:
             self._actived = True
             # TODO: animation
+            self.labelUI.bgcolor=self.selectcolor
+            self.labelUI.mark_redraw()
             self.mark_redraw()
 
     def deactive(self):
         if self._actived:
             self._actived = False
             self.selected = None
+            self.labelUI.bgcolor=self.LABEL_COLOR
+            self.labelUI.mark_redraw()
             # TODO: animation
             self.mark_redraw()
 
@@ -276,14 +287,56 @@ class ServoBoard(UIBase):
 
 class ServoControl(UIBase):
     AllArgs = update_join(UIBase.AllArgs, 
-            bgcolor="(0, 0, 0, 255)",
+            bgcolor="(0x88, 0x88, 0x88, 255)",
             color="(0, 0xff, 0, 255)",
             size="(500, 600)",
+            viewpos="(0, 0)",
             )
+    ArgsOrd = ord_join(UIBase.ArgsOrd, 
+            ['viewpos'])
+    assert sorted(AllArgs.keys()) == sorted(ArgsOrd)
+
+    SERVO_ATTRS = ['sid', 'bias', 'direction', 'interval']
+
     def init(self):
         self.servos = [ServoBoard(self)]
         self.actived = 0
         self.bind(EV_KEYPRESS, self.on_keypress, BLK_POST_BLOCK)
+        self.board = None
+
+    def on_select(self, servo):
+        pass
+
+    def adjust_curframe(self, a):
+        servo = self.servos[self.actived]
+        #TODO
+
+    def play(self):
+        pass
+
+    def pause(self):
+        pass
+
+    def connect_robot(self):
+        pass
+
+    def disconnect_robot(self):
+        pass
+
+    @property
+    def viewpos(self):
+        return self._viewpos
+
+    @viewpos.setter
+    def viewpos(self, v):
+        self._viewpos = v
+        x, y = v
+        if not hasattr(self, 'servos'): 
+            return
+        for servo in self.servos:
+            servo.viewpos = x
+            servo.mark_redraw()
+        self.mark_redraw()
 
     def on_keypress(self, event):
         key = event.key
@@ -292,9 +345,20 @@ class ServoControl(UIBase):
             # insert key frame
             ti = servo.selected
             if ti is not None:
-                i, dti = self.find_ti_pos(ti)
-                a = servo.keyFrames[i].a
-                servo.insert_key_frame(ti, a)
+                i, dti = servo.find_ti_pos(ti)
+                a = servo.get_a_at(ti)
+                if event.mod & KMOD_SHIFT:
+                    servo.insert_frame(ti)
+                else:
+                    servo.insert_key_frame(ti, a)
+        elif key in (K_d, K_DELETE, K_BACKSPACE):
+            ti = servo.selected
+            if ti is not None:
+                servo.remove_frame(ti)
+        elif key in (K_h, K_LEFT) and (event.mod & KMOD_SHIFT):
+            # move view left
+            x, y = self.viewpos
+            self.viewpos = max(0, x - 1), y
         elif key in (K_h, K_LEFT):
             # select previous frame
             ti = servo.selected
@@ -304,6 +368,10 @@ class ServoControl(UIBase):
                 ti = max(0, ti - 1)
             servo.selected = ti
             servo.mark_redraw()
+        elif key in (K_l, K_RIGHT) and (event.mod & KMOD_SHIFT):
+            # move view right
+            x, y = self.viewpos
+            self.viewpos = max(0, x + 1), y
         elif key in (K_l, K_RIGHT):
             # select next frame
             ti = servo.selected
@@ -313,10 +381,25 @@ class ServoControl(UIBase):
                 ti += 1
             servo.selected = ti
             servo.mark_redraw()
+        elif key in (K_j, K_DOWN) and event.mod & KMOD_SHIFT:
+            # increase angle
+            if servo.selected is not None:
+                i, dti = servo.find_ti_pos(servo.selected)
+                if i < len(servo.keyFrames):
+                    servo.keyFrames[i].a += 5
+                    servo.mark_redraw()
+        elif key in (K_k, K_UP) and event.mod & KMOD_SHIFT:
+            # decrease angle
+            if servo.selected is not None:
+                i, dti = servo.find_ti_pos(servo.selected)
+                if i < len(servo.keyFrames):
+                    servo.keyFrames[i].a -= 5
+                    servo.mark_redraw()
         elif key in (K_j, K_DOWN):
             # select next servo
             self.select_servo(self.actived + 1)
         elif key in (K_k, K_UP):
+            # select previous servo
             self.select_servo(self.actived - 1)
         else:
             # did not accept this key
@@ -328,6 +411,7 @@ class ServoControl(UIBase):
         self.servos[self.actived].deactive()
         self.servos[idx].active()
         self.actived = idx
+        self.on_select(self.servos[idx])
         self.mark_redraw()
 
     def new_servos(self):
@@ -366,8 +450,9 @@ class ServoControl(UIBase):
 
     def add_servo(self, servo):
         self.servos.append(servo)
+        servo.viewpos = self.viewpos[0]
+        servo.mark_redraw()
 
-    SAVE_ATTRS = ['sid', 'bias', 'direction', 'interval']
     def save_servos(self, filename):
         if os.path.exists(filename):
             # file exist, backup
@@ -376,7 +461,7 @@ class ServoControl(UIBase):
         data['servos'] = servosData = []
         for servo in self.servos:
             adata = {}
-            for attr in self.SAVE_ATTRS:
+            for attr in self.SERVO_ATTRS:
                 adata[attr] = getattr(servo, attr)
             adata['keyFrames'] = [(kf.a, kf.dti) for kf in servo.keyFrames]
             servosData.append(adata)
@@ -400,11 +485,11 @@ class ServoControl(UIBase):
 
     def redraw(self, *args):
         self._redrawed = 1
-        bw = 4
+        bw = 3
         w0, h0 = self.size
         w = w0 - 2 * bw
         h = (h0 - bw) / max(1, len(self.servos)) - bw
-        x, y = bw, bw
+        x, y = bw, bw - self.viewpos[1]
         image = self.ownImage
         image.fill(self.bgcolor)
         for servo in self.servos:
@@ -415,3 +500,40 @@ class ServoControl(UIBase):
             if servo.is_actived():
                 pg.draw.rect(image, self.color, pg.Rect((0, y-bw), (w0, h+2*bw)))
             y += h + bw
+
+
+class AttrBoard(UIBase):
+    AllArgs = update_join(UIBase.AllArgs, 
+            bgcolor="(147, 172, 124, 0xff)",
+            itemheight="20",
+            )
+    ArgsOrd = ord_join(UIBase.ArgsOrd, 
+            ['itemheight']
+            )
+    assert sorted(AllArgs.keys()) == sorted(ArgsOrd)
+
+    MARGIN = 5
+
+    def init(self):
+        self.lines = []
+
+    def add_line(self):
+        w, h = self.size
+        h = self.itemheight
+        x, y = self.MARGIN, len(self.lines) * (h + self.MARGIN) + self.MARGIN
+        w1 = int((w - 2 * self.MARGIN) * 0.3)
+        w2 = w - w1 - 6 - self.MARGIN
+        attr = Label(self, align=Label.ALIGN_RIGHT, size=(w1, h), pos=(x, y))
+        value = InputBox(self, size=(w2, h), pos=(x + w1 + 2, y))
+        self.lines.append((attr, value))
+
+    def show(self, obj, attrs):
+        while len(self.lines) < len(attrs):
+            self.add_line()
+        for (label, input) in self.lines[len(attrs):]:
+            label.hide()
+            input.hide()
+        for attr, (label, input) in zip(attrs, self.lines):
+            label.text = attr
+            input.text = str(getattr(obj, attr))
+            input.mark_redraw()

@@ -23,6 +23,14 @@ class Root(UIBase):
         self._underMouse = []
         self._timers = []
 
+        def quit(event):
+            if event.type == KEYDOWN:
+                if event.key == K_q:
+                    self.quit()
+                else:
+                    return True
+        self.bind(EV_KEYPRESS, quit, BLK_POST_BLOCK)
+
     def tab_focus(self, event):
         if event.mod & KMOD_SHIFT:
             focus.set_focus(focus.prev_focus())
@@ -110,13 +118,17 @@ class Root(UIBase):
                 if not flag:
                     self.on_event(t, e) # invoke the handler
 
+    def on_loop(self):
+        pass
+
     def mainloop(self):
         self._quit = False
         tm = pg.time.Clock()
         while not self._quit:
             self.handle_event()
             #update timers
-            Timer.update_all(1./FPS)
+            Timer.update_all()
+            self.on_loop()
             # update graphic
             self.update()
             pg.display.flip()

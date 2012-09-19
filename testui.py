@@ -6,6 +6,7 @@ from pgui.textbox import TextBox
 from pgui.inputbox import InputBox
 from pgui.menu import Menu
 from servo import ServoControl, ServoBoard
+from pgui.fps import FPSMeter 
 
 def barker(msg):
     def bark(*args):
@@ -21,13 +22,6 @@ root = Root(bgcolor=(0xef, 0xef, 0xff, 0xff), size=(1024, 768))
 # 
 # button = Button(root, caption="Click Me", pos=(300, 400), size=(100, 30))
 # button.bind_command(barker("How dare you!"))
-def quit(event):
-    if event.type == KEYDOWN:
-        if event.key == K_q:
-            root.quit()
-        else:
-            return True
-root.bind(EV_KEYPRESS, quit, BLK_POST_BLOCK)
 src = (
 """
 The textbox works!
@@ -95,6 +89,9 @@ def show_menu(event):
 
 root.bind(EV_RCLICK, show_menu, BLK_POST_BLOCK)
 root.bind(EV_CLICK, menu.hide, BLK_POST_BLOCK)
+
+fpsmeter = FPSMeter(root, pos=(0, 0))
+root.on_loop = fpsmeter.count
 
 controller = ServoControl(root, size=(800, 700), pos=(200, 10))
 controller.new_servos()

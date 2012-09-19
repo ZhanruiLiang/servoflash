@@ -12,10 +12,10 @@ class Label(UIBase):
             text='""',
             bgcolor='(0x88, 0x88, 0x88, 0xff)',
             )
-    Font = pg.font.Font(os.path.join(RES_DIR, 'MonospaceTypewriter.ttf'), 13)
     ArgsOrd = ord_join(UIBase.ArgsOrd,
             ['align', 'bgcolor', 'size', 'text']
             )
+    Font = pg.font.Font(os.path.join(RES_DIR, 'MonospaceTypewriter.ttf'), 13)
     @property
     def text(self):
         return self._text

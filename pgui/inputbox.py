@@ -50,6 +50,9 @@ class InputBox(UIBase, Focusable):
         self._editing = False
         self.blinker = ColorAnimate(self.blinker.get(), self.bgcolor)
 
+    def on_confirm(self, text):
+        pass
+
     def input(self, event):
         if event.key in (pg.K_BACKSPACE, pg.K_DELETE, pg.K_LEFT):
             self.text = self.text[:-1]
@@ -58,10 +61,11 @@ class InputBox(UIBase, Focusable):
         elif event.key == pg.K_c and (event.mod & pg.KMOD_CTRL):
             self.copy_to_X()
         elif event.key == K_RETURN:
-            if event.mod & KMOD_SHIFT:
-                focus.set_focus(focus.prev_focus())
-            else:
-                focus.set_focus(focus.next_focus())
+            self.on_confirm(self.text)
+            # if event.mod & KMOD_SHIFT:
+            #     focus.set_focus(focus.prev_focus())
+            # else:
+            #     focus.set_focus(focus.next_focus())
         elif event.unicode in self.chars:
             self.text = self.text + str(event.unicode)
         self.txtLabel.text = self.text
@@ -102,6 +106,7 @@ class InputBox(UIBase, Focusable):
         if w1 != w0 or h1 != h0:
             self.pos = (self.pos[0] - (w1 - w0)/2, self.pos[1] - (h1 - h0)/2)
             self.resize((w1, h1))
+        self.txtLabel.text = self.text
 
     def copy_to_X(self):
         copy_to_X(self.text)

@@ -77,7 +77,10 @@ class UIBase(EventHandler, pg.sprite.Sprite):
             self.parent.mark_redraw()
 
     def destory(self):
-        self._destoryed = True
+        if not self._destoryed:
+            self._destoryed = True
+            self.parent.remove_child(self)
+            self.parent.mark_redraw()
 
     @property
     def pos(self):
@@ -104,6 +107,7 @@ class UIBase(EventHandler, pg.sprite.Sprite):
 
     def redraw(self, *args):
         # redraw ownImage
+        self.ownImage.fill(self.bgcolor)
         self._redrawed = 1
 
     def mark_redraw(self):
@@ -121,8 +125,7 @@ class UIBase(EventHandler, pg.sprite.Sprite):
         self.rect.topleft = self.pos
 
         affected = any([c.update(*args) for c in self.childs])
-        affected = affected or self._redrawed or any(c._destoryed for c in self.childs)
-        self.childs = [c for c in self.childs if not c._destoryed]
+        affected = affected or self._redrawed 
         self._redrawed = 0
         if not affected: 
             return False
@@ -138,8 +141,9 @@ class UIBase(EventHandler, pg.sprite.Sprite):
         return cmp(c2.level, c1.level)
 
     def add_child(self, child):
+        if child in self.childs: return
         self.childs.append(child)
-        self.childs.sort(cmp=self._child_cmp)
+        self.update_childs()
 
     def update_childs(self): 
         self.childs.sort(cmp=self._child_cmp)

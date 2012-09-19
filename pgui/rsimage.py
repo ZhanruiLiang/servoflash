@@ -4,6 +4,7 @@ import os
 from uiconsts import RES_DIR
 
 class RSImage:
+    """ ReSizable image """
     pg.display.init()
 
     _cache = {}

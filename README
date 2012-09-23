@@ -1,0 +1,11 @@
+Keys:
+    - h: previous frame
+    - l: next frame
+
+    - j: next servo
+    - k: previous servo
+
+    - H: grab board left
+    - L: grab board right
+
+    - J/K, Alt-J, Alt-K: adjust frame angle value

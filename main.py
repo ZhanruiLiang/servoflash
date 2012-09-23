@@ -16,13 +16,13 @@ def on_loop():
 root.on_loop = on_loop
 # set up the fps meter
 fpsmeter = pgui.FPSMeter(root, level=2000, pos=(700, 600))
+
 # set up the controller
 controller = servo.ServoControl(root, 
         size=(CONTROLLER_W, CONTROLLER_H),
         pos=(1, MENU_H))
-# test save/load
 controller.new_servos()
-# controller.load_servos('test_save.srv')
+
 # set up the attribute board
 attrs = AttrBoard(root,
         bgcolor=PANEL_BG,

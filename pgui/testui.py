@@ -21,13 +21,6 @@ root = Root(bgcolor=(0xef, 0xef, 0xff, 0xff), size=(800, 600))
 # 
 # button = Button(root, caption="Click Me", pos=(300, 400), size=(100, 30))
 # button.bind_command(barker("How dare you!"))
-def quit(event):
-    if event.type == KEYDOWN:
-        if event.key == K_q:
-            root.quit()
-        else:
-            return True
-root.bind(EV_KEYPRESS, quit, BLK_POST_BLOCK)
 src = (
 """
 The textbox works!

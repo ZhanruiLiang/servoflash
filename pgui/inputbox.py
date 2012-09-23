@@ -4,6 +4,7 @@ from button import Button, TransButton
 from label import Label
 from timer import Timer
 from animate import ColorAnimate
+from root import warn, hint
 import string
 
 class InputBox(UIBase, Focusable):
@@ -38,6 +39,9 @@ class InputBox(UIBase, Focusable):
         Timer.add(Timer(1./FPS, self.animate))
         self.blinker = ColorAnimate(self.bgcolor, self.bgcolor)
 
+        self.confirmCallBacks = []
+        self.changeCallBacks = []
+
     def start_blink(self):
         self._blinkState = 0
         self.blinker = ColorAnimate(self.bgcolor, self.blinkcolor)
@@ -50,24 +54,39 @@ class InputBox(UIBase, Focusable):
         self._editing = False
         self.blinker = ColorAnimate(self.blinker.get(), self.bgcolor)
 
-    def on_confirm(self, text):
-        pass
+    def on_confirm(self):
+        for cb in self.confirmCallBacks:
+            cb()
+
+    def bind_on_confirm(self, cb):
+        self.confirmCallBacks.append(cb)
+
+    def bind_on_change(self, cb):
+        self.changeCallBacks.append(cb)
+
+    def clear_callbacks(self):
+        del self.changeCallBacks[:]
+        del self.confirmCallBacks[:]
+
+    def on_change(self):
+        for cb in self.changeCallBacks:
+            cb()
 
     def input(self, event):
         if event.key in (pg.K_BACKSPACE, pg.K_DELETE, pg.K_LEFT):
             self.text = self.text[:-1]
+            self.on_change()
         elif event.key == pg.K_v and (event.mod & pg.KMOD_CTRL):
             self.paste_from_X()
+            self.on_change()
         elif event.key == pg.K_c and (event.mod & pg.KMOD_CTRL):
             self.copy_to_X()
         elif event.key == K_RETURN:
-            self.on_confirm(self.text)
-            # if event.mod & KMOD_SHIFT:
-            #     focus.set_focus(focus.prev_focus())
-            # else:
-            #     focus.set_focus(focus.next_focus())
+            self.on_confirm()
+            focus.set_focus(focus.next_focus())
         elif event.unicode in self.chars:
             self.text = self.text + str(event.unicode)
+            self.on_change()
         self.txtLabel.text = self.text
         self.mark_redraw()
 
@@ -98,15 +117,32 @@ class InputBox(UIBase, Focusable):
         except AttributeError:
             pass
 
+    def bind_setter(self, obj, attr, eval_):
+        def setter(obj=obj):
+            try:
+                v = eval_(self.text)
+                setattr(obj, attr, v)
+            except Exception as v:
+                warn(str(v))
+                v = getattr(obj, attr)
+                self.text = str(v)
+        self.bind_on_confirm(setter)
+
     def redraw(self):
-        w0, h0 = self.size
-        tw, th = self.txtLabel.Font.size(self.text)
-        w1 = max(self.minWidth, tw)
-        h1 = max(self.minHeight, th)
-        if w1 != w0 or h1 != h0:
-            self.pos = (self.pos[0] - (w1 - w0)/2, self.pos[1] - (h1 - h0)/2)
-            self.resize((w1, h1))
-        self.txtLabel.text = self.text
+        # w0, h0 = self.size
+        # tw, th = self.txtLabel.Font.size(self.text)
+        # w1 = max(self.minWidth, tw)
+        # h1 = max(self.minHeight, th)
+        # if w1 != w0 or h1 != h0:
+        #     self.pos = (self.pos[0] - (w1 - w0)/2, self.pos[1] - (h1 - h0)/2)
+        #     self.resize((w1, h1))
+        charW = self.txtLabel.Font.size('a')[0]
+        w = self.size[0]
+        maxc = w / charW
+        if maxc >= len(self.text):
+            self.txtLabel.text = self.text
+        else:
+            self.txtLabel.text = '..' + self.text[-(maxc-2):]
 
     def copy_to_X(self):
         copy_to_X(self.text)

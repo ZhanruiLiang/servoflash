@@ -5,6 +5,7 @@ from animate import ColorAnimate
 from label import Label
 from rsimage import RSImage
 from focus import Focusable
+from eventh import mouse
 
 class Button(UIBase, Focusable):
     ALIGN_CENTER = Label.ALIGN_CENTER
@@ -13,6 +14,7 @@ class Button(UIBase, Focusable):
 
     AllArgs = update_join(UIBase.AllArgs,
             bgcolor='(0x58, 0x58, 0x58, 0xff)',
+            color='(0xff, 0xff, 0xff, 0xff)',
             hovercolor='(0x88, 0xff, 0x88, 0xff)',
             presscolor='(0x10, 0x2f, 0x10, 0xff)',
             caption='"button%s"%self.id',
@@ -39,6 +41,8 @@ class Button(UIBase, Focusable):
         Focusable.__init__(self)
         self.label = Label(self, text=self.caption, align=self.align, color=self.color, bgcolor=COLOR_TRANS, size=self.size)
         self._underMouse = False
+        self._commands = []
+
         self.bind(EV_MOUSEOVER, self.on_mouse_over, BLK_PRE_NONBLOCK)
         self.bind(EV_MOUSEDOWN, self.on_mouse_down, BLK_PRE_NONBLOCK)
         self.bind(EV_MOUSEOUT, self.on_mouse_out, BLK_PRE_NONBLOCK)
@@ -46,7 +50,8 @@ class Button(UIBase, Focusable):
 
         self.curColor = ColorAnimate((0, 0, 0, 0xff), self.bgcolor)
         Timer.add(Timer(1./FPS, self.animate))
-        self.bind(EV_CLICK, self._command, BLK_PRE_BLOCK)
+        self.bind(EV_CLICK, self.command, BLK_PRE_BLOCK)
+        self.bind_command(self.on_mouse_out)
 
     def on_focus(self, *args):
         if not self._underMouse:
@@ -57,20 +62,21 @@ class Button(UIBase, Focusable):
 
     def input(self, e):
         if e.key == K_RETURN:
-            self.command(e)
             self.on_mouse_down()
-            Timer.add(Timer(0.2, self.on_mouse_up, 1))
+            if self.is_under_mouse(mouse.pos):
+                Timer.add(Timer(0.2, self.on_mouse_up, 1))
+            else:
+                Timer.add(Timer(0.2, self.on_mouse_out, 1))
+            self.command(e)
         else:
             return True
 
     def command(self, *args):
-        pass
-
-    def _command(self, *args):
-        self.command(*args)
+        for c in self._commands:
+            c(*args)
 
     def bind_command(self, command):
-        self.command = command
+        self._commands.append(command)
 
     def resize(self, size):
         super(Button, self).resize(size)
@@ -95,13 +101,13 @@ class Button(UIBase, Focusable):
             self.curColor = ColorAnimate(self.curColor.get(), self.hovercolor)
             if self != focus.get_focus():
                 self.set_as_focus()
-        self._underMouse = True
+            self._underMouse = True
 
     def on_mouse_out(self, *args):
         if self._underMouse:
             # reset the color to bgcolor, with animation
             self.curColor = ColorAnimate(self.curColor.get(), self.bgcolor)
-        self._underMouse = False
+            self._underMouse = False
 
     def on_mouse_down(self, *args):
         self.curColor = ColorAnimate(self.curColor.get(), self.presscolor)

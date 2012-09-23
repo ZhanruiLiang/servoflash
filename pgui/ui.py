@@ -3,11 +3,19 @@ from vec2di import V2I
 from uiconsts import *
 from eventh import *
 from utils import *
+from copy import copy
 import focus
 # using new style class
 __metaclass__ = type
 
 pg.display.set_mode((SCREEN_W, SCREEN_H), VFLAG, 32)
+
+def rects_join(rects):
+    if not rects: return None
+    if len(rects) == 1:
+        return rects[0].copy()
+    return rects[0].unionall(rects[1:])
+
 class UIBase(EventHandler, pg.sprite.Sprite):
     AllArgs = update_join({},
             level='100',
@@ -38,12 +46,18 @@ class UIBase(EventHandler, pg.sprite.Sprite):
                 setattr(self, attr, dargs[attr])
                 del dargs[attr]
             elif attr in self.AllArgs:
-                setattr(self, attr, eval(self.AllArgs[attr]))
+                v = self.AllArgs[attr]
+                if isinstance(v, str):
+                    v = eval(v)
+                else:
+                    v = copy(v)
+                setattr(self, attr, v)
         super(UIBase, self).__init__(**dargs)
 
         self.childs = []
         self._redrawed = 0
         self._destoryed = False
+        self._lastRect = None
         self.resize(self.size)
         self.mark_redraw()
         self.init()
@@ -94,6 +108,7 @@ class UIBase(EventHandler, pg.sprite.Sprite):
             self._redrawed = 1
 
     def __repr__(self, shows=['id', 'pos', 'level']):
+        shows = []
         args = ','.join('%s=%s' % (attr, getattr(self, attr)) 
                             for attr in shows if attr != 'parent' and hasattr(self, attr))
         return '%s(%s)' % (self.__class__.__name__, args)
@@ -115,6 +130,52 @@ class UIBase(EventHandler, pg.sprite.Sprite):
 
     def update(self, *args):
         """ Update the affected area.
+            If readlly updated, return the updated rect, else None
+        """
+        self.rect.topleft = self.pos
+        if self._needRedraw:
+            self.redraw()
+            self._needRedraw = 0
+        image = self.image
+        ownImage = self.ownImage
+
+        chdRects = []
+        chdLastRects = []
+        for c in self.childs:
+            chdRect = c.update(*args)
+            if c._lastRect != c.rect:
+                # this child moved or resized
+                if c._lastRect:
+                    chdRects.append(c._lastRect)
+                chdRects.append(c.rect)
+                c._lastRect = c.rect.copy()
+            elif chdRect is not None:
+                # this child updated in rect chdRect
+                chdRects.append(chdRect)
+        if self._redrawed:
+            rect = self.rect.copy()
+            rect.topleft = (0, 0)
+            self._redrawed = 0
+        else:
+            rect = rects_join(chdRects)
+            if rect is None:
+                return None
+
+        if ownImage:
+            pg.draw.rect(image, COLOR_TRANS, rect)
+            # print self, 'blit own', rect, rect
+            image.blit(ownImage, rect, rect)
+        # render the lowwer level ones first.
+        for child in reversed(self.childs):
+            if child.rect.colliderect(rect):
+                x, y = child.rect.topleft
+                image.blit(child.image, rect, rect.move((-x, -y)))
+        return rect.move(self.rect.topleft)
+
+
+    def _update_bak(self, *args):
+    # def update(self, *args):
+        """ Update the affected area.
             If readlly updated, return True, else False
         """
         if self._needRedraw:
@@ -135,7 +196,7 @@ class UIBase(EventHandler, pg.sprite.Sprite):
         # render the lowwer level ones first.
         for child in reversed(self.childs):
             image.blit(child.image, child.rect)
-        return True
+        return self.rect
 
     def _child_cmp(self, c1, c2):
         return cmp(c2.level, c1.level)
@@ -152,7 +213,10 @@ class UIBase(EventHandler, pg.sprite.Sprite):
         if not args:
             args = self.childs[:]
         for child in args:
-            self.childs.remove(child)
+            try:
+                self.childs.remove(child)
+            except ValueError:
+                print 'WARN: remove child %(child)r from %(self)r more than once' % locals()
 
     def get_global_pos_at(self, localPos):
         # p0(basic pos) in global

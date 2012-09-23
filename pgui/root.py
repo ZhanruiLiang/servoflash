@@ -13,23 +13,31 @@ class Root(UIBase):
             )
     assert sorted(AllArgs.keys()) == sorted(ArgsOrd)
 
+    TOP_LEVEL = 1000
+
+    instance = None
+
     def __init__(self, *args, **dargs):
+        if Root.instance is not None:
+            raise Exception("you cannot has more than one Root instance.")
         super(Root, self).__init__(None, *args, **dargs)
+        Root.instance = self
 
     def init(self):
+        import hint
         pg.display.set_caption(self.caption)
         pg.key.set_repeat(400, 50)
         self._quit = False
         self._underMouse = []
         self._timers = []
+        self._dialogQueue = []
+        self.dialog = None
+        self.hinter = hint.PopupHinter(self, pos=(0, self.size[1]), level=self.TOP_LEVEL)
+        self.warner= hint.PopupHinter(self, level=self.TOP_LEVEL,
+                pos=(500, self.size[1]), 
+                bgcolor=(0xff, 0x4f, 0x4c, 0xff))
 
-        def quit(event):
-            if event.type == KEYDOWN:
-                if event.key == K_q:
-                    self.quit()
-                else:
-                    return True
-        self.bind(EV_KEYPRESS, quit, BLK_POST_BLOCK)
+        self.bind_key(K_q, self.quit)
 
     def tab_focus(self, event):
         if event.mod & KMOD_SHIFT:
@@ -65,7 +73,6 @@ class Root(UIBase):
         events = pg.event.get()
         for e in events:
             Keys.update(e)
-            # print 'pressed', Keys.get_pressed()
             mouse.update(e)
 
             # start detect eventTypes
@@ -101,6 +108,8 @@ class Root(UIBase):
             elif e.type == pg.VIDEORESIZE:
                 pg.display.set_mode(e.size, VFLAG, 32)
                 self.resize(e.size)
+                print 'main window resized'
+                self.mark_redraw()
             self._underMouse = underMouse
             for t in types:
                 flag = 0
@@ -121,6 +130,48 @@ class Root(UIBase):
     def on_loop(self):
         pass
 
+    def show_hint(self, hint):
+        print '[HINT]:',hint
+        self.hinter.show_hint(hint)
+
+    def show_warn(self, msg):
+        print '[WARN!]:', msg
+        self.warner.show_hint(msg)
+
+    DIALOG_LEVEL = TOP_LEVEL
+    def show_dialog(self, dialog):
+        dialog.hide()
+        self._dialogQueue.append(dialog)
+        self._dialogQueue.sort(cmp=lambda x,y:y.emergency-x.emergency)
+        if self.dialog is None:
+            self._show_dialog()
+
+    def _show_dialog(self):
+        if not self._dialogQueue: return
+        # fetch the dialog
+        dialog = self._dialogQueue[0]
+        del self._dialogQueue[0]
+        dialog.show()
+        # draw bg
+        if not hasattr(self, '_diaglogBG'):
+            self._diaglogBG = UIBase(self, 
+                    level=self.DIALOG_LEVEL-1, 
+                    size=self.size,
+                    bgcolor=(0, 0, 0, 0x88))
+            self._diaglogBG.bind(EV_MOUSEDOWN, lambda e:None, BLK_PRE_BLOCK)
+            self._diaglogBG.bind(EV_KEYPRESS, lambda e:None, BLK_PRE_BLOCK)
+        else:
+            if self._diaglogBG.size != self.size:
+                self._diaglogBG.resize(self.size)
+            self._diaglogBG.show()
+        self.dialog = dialog
+
+    def hide_dialog(self):
+        self.dialog.destory()
+        self.dialog = None
+        self._diaglogBG.hide()
+        self._show_dialog()
+
     def mainloop(self):
         self._quit = False
         tm = pg.time.Clock()
@@ -130,11 +181,19 @@ class Root(UIBase):
             Timer.update_all()
             self.on_loop()
             # update graphic
-            self.update()
-            pg.display.flip()
+            rect = self.update()
+            if rect: 
+                pg.display.update(rect)
+            # pg.display.flip()
             # delay
             tm.tick(FPS)
 
-    def quit(self):
+    def quit(self, *args):
         print 'quit'
         self._quit = True
+
+def warn(msg):
+    Root.instance.show_warn(msg)
+
+def hint(msg):
+    Root.instance.show_hint(msg)

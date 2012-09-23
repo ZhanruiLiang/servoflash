@@ -30,7 +30,7 @@ class ColorAnimate(Animate):
         else:
             self.finish()
 
-def step_value(v, v1, k=0.5):
+def step_value(v, v1, k=0.3):
     return v + (v1 - v) * k
 
 class ValueAnimate(Animate):
@@ -42,6 +42,8 @@ class ValueAnimate(Animate):
         if abs(self.v - self.v1) < self.thredshold:
             self.v = self.v1
             self.finish()
+    def __repr__(self):
+        return 'ValueAnimate(cur=%s, to=%s)' %(self.v, self.v1)
 
 class SizeAnimate(Animate):
     def __init__(self, s1, s2):

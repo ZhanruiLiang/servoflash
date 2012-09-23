@@ -1,1 +1,1 @@
-map <F5> :!pyrunner ~/python/servoflash/main.py<Cr>
+map <F5> :!cd ~/python/servoflash && pyrunner ~/python/servoflash/main.py<Cr>

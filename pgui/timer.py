@@ -9,20 +9,22 @@ class Timer(object):
 
     @staticmethod
     def remove(timer):
-        Timer.timers.remove(timer)
+        if timer in Timer.timers:
+            Timer.timers.remove(timer)
 
     @staticmethod
     def update_all():
         dt = Timer.clock.tick()/1000.
+        Timer.timers = [tm for tm in Timer.timers if not tm.is_finished()]
         for tm in Timer.timers:
             tm.update(dt)
-        Timer.timers = [tm for tm in Timer.timers if not tm.is_finished()]
 
     def __init__(self, interval, callback, loop=0, delay=0.):
+        assert interval > 0, "interval should be positive"
         self.interval = interval
         self.callback = callback
         self.accu = -delay
-        self.loop = loop
+        self.loop = int(loop)
         self.running = True
 
     def start(self):
@@ -39,7 +41,10 @@ class Timer(object):
         if not self.running: return
         self.accu += dt
         while self.accu >= self.interval:
-            self.callback(dt)
+            if self.callback.func_code.co_argcount == 2:
+                self.callback(dt)
+            else:
+                self.callback()
             if self.loop == 1:
                 self.loop = -1
             elif self.loop > 0:

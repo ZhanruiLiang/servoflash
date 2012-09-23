@@ -10,7 +10,7 @@ class FPSMeter(Label):
             )
     INTERVAL = 1.0
     def init(self):
-        self.tm = Timer(self.INTERVAL, self.update_fps, 0, 1.0)
+        self.tm = Timer(self.INTERVAL, self.update_fps, 0, 0.1)
         self.fcnt = 0
         Timer.add(self.tm)
 

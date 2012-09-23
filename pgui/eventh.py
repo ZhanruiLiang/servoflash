@@ -22,8 +22,22 @@ class EventHandler:
             self._eventHandlers[eventType] = [[] for i in xrange(4)]
         self._eventHandlers[eventType][blockMode].append(handler)
 
+    def bind_key(self, key, handler, mod=0):
+        def kcallback(event):
+            if event.type == KEYDOWN and event.key == key:
+                if mod == 0 or event.mod & mod:
+                    handler(event)
+                    return None
+            return True
+        self.bind(EV_KEYPRESS, kcallback, BLK_POST_BLOCK)
+        return kcallback
+
     def unbind(self, eventType, handler, blockMode):
-        self._eventHandlers[eventType][blockMode].remove(handler)
+        if handler is None:
+            # remove all
+            del self._eventHandlers[eventType][blockMode][:]
+        else:
+            self._eventHandlers[eventType][blockMode].remove(handler)
 
     _ets0 = (EV_KEYPRESS, EV_MOUSEOUT, EV_DRAGOUT)
     _ets1 = (EV_MOUSEOUT, EV_MOUSEDOWN, EV_CLICK, EV_RCLICK, EV_MOUSEUP, EV_MOUSEOVER, EV_DRAGOVER)

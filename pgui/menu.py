@@ -26,8 +26,6 @@ class Menu(UIBase):
             self.resize((self.itemsize[0] + 2 * self.margin, self.margin))
         else:
             self.resize((self.margin, self.itemsize[1] + self.margin * 2))
-        Timer.add(Timer(1./FPS, self.animate))
-        self.bind(EV_KEYPRESS, self.hide, BLK_POST_BLOCK)
 
     def add_item(self, name, callback):
         wi, hi = self.itemsize
@@ -42,7 +40,7 @@ class Menu(UIBase):
                 color=self.color, bgcolor=self.bgcolor,
                 align=Button.ALIGN_CENTER)
         item.bind_command(callback)
-        item.bind(EV_CLICK, self.hide, BLK_PRE_BLOCK)
+        # item.bind(EV_CLICK, self.hide, BLK_PRE_BLOCK)
         self.items.append(item)
         self.resize(self.cal_size())
         self.mark_redraw()
@@ -54,16 +52,6 @@ class Menu(UIBase):
             return (2 * margin + len(self.items) * wi, self.size[1])
         else:
             return (self.size[0], hi * len(self.items) + margin)
-
-    def animate(self, dt):
-        if not hasattr(self, 'curSize') or self.curSize.is_end(): return
-        self.resize(self.curSize.get())
-        self._redrawed = 1
-        self.mark_redraw()
-
-    def show(self, *args):
-        super(Menu, self).show(*args)
-        self.curSize = SizeAnimate((0, 0), self.cal_size())
 
     def remove_item(self, name):
         for item in self.items:
@@ -77,6 +65,26 @@ class Menu(UIBase):
 
     def redraw(self):
         image = self.ownImage
-        image.fill(COLOR_TRANS)
-        image.blit(self.rsi.generate(self.size), (0, 0))
-        image.fill(self.gapcolor, None, BLEND_RGBA_MULT)
+        if self.vertical:
+            image.fill(COLOR_TRANS)
+            image.blit(self.rsi.generate(self.size), (0, 0))
+            image.fill(self.gapcolor, None, BLEND_RGBA_MULT)
+        else:
+            image.fill(self.gapcolor)
+        self._redrawed = 1
+
+class PopupMenu(Menu):
+    def __init__(self, parent, **dargs):
+        super(PopupMenu, self).__init__(parent, **dargs)
+        Timer.add(Timer(1./FPS, self.animate))
+        self.bind_key(K_ESCAPE, self.hide)
+
+    def animate(self, dt):
+        if not hasattr(self, 'curSize') or self.curSize.is_end(): return
+        self.resize(self.curSize.get())
+        self._redrawed = 1
+        self.mark_redraw()
+
+    def show(self, *args):
+        super(Menu, self).show(*args)
+        self.curSize = SizeAnimate((0, 0), self.cal_size())

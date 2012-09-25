@@ -122,6 +122,7 @@ class InputBox(UIBase, Focusable):
             try:
                 v = eval_(self.text)
                 setattr(obj, attr, v)
+                obj.mark_redraw()
             except Exception as v:
                 warn(str(v))
                 v = getattr(obj, attr)

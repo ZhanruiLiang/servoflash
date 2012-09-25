@@ -50,7 +50,9 @@ class Dialog(UIBase):
         self.parent.hide_dialog()
 
     def cancel(self, event):
+        print 'cancel'
         self.parent.hide_dialog()
+        focus.set_focus(None)
 
 class OptionDialog(UIBase):
     def __init__(self, msg, options, callback, emergency=0, **dargs):

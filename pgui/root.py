@@ -37,7 +37,7 @@ class Root(UIBase):
                 pos=(500, self.size[1]), 
                 bgcolor=(0xff, 0x4f, 0x4c, 0xff))
 
-        self.bind_key(K_q, self.quit)
+        # self.bind_key(K_q, self.quit)
 
     def tab_focus(self, event):
         if event.mod & KMOD_SHIFT:
@@ -56,7 +56,8 @@ class Root(UIBase):
         # self.image = pg.display.set_mode(self.size, VFLAG, 32)
         self.image=  pg.display.get_surface()
         self.rect = pg.Rect(self.pos, size)
-        self.ownImage = self.image.copy()
+        # self.ownImage = self.image.copy()
+        self.ownImage = pg.Surface(self.size).convert()
         self.mark_redraw()
 
     def redraw(self):
@@ -106,7 +107,7 @@ class Root(UIBase):
                 self.quit()
                 return
             elif e.type == pg.VIDEORESIZE:
-                pg.display.set_mode(e.size, VFLAG, 32)
+                pg.display.set_mode(e.size, VFLAG)
                 self.resize(e.size)
                 print 'main window resized'
                 self.mark_redraw()
@@ -182,9 +183,9 @@ class Root(UIBase):
             self.on_loop()
             # update graphic
             rect = self.update()
-            if rect: 
-                pg.display.update(rect)
-            # pg.display.flip()
+            # if rect: 
+            #     pg.display.update(rect)
+            pg.display.flip()
             # delay
             tm.tick(FPS)
 

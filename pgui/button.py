@@ -7,7 +7,8 @@ from rsimage import RSImage
 from focus import Focusable
 from eventh import mouse
 
-class Button(UIBase, Focusable):
+# class Button(UIBase, Focusable):
+class Button(UIBase):
     ALIGN_CENTER = Label.ALIGN_CENTER
     ALIGN_LEFT = Label.ALIGN_LEFT
     ALIGN_RIGHT = Label.ALIGN_RIGHT
@@ -38,7 +39,7 @@ class Button(UIBase, Focusable):
             self.label.text = v
 
     def init(self):
-        Focusable.__init__(self)
+        # Focusable.__init__(self)
         self.label = Label(self, text=self.caption, align=self.align, color=self.color, bgcolor=COLOR_TRANS, size=self.size)
         self._underMouse = False
         self._commands = []
@@ -99,8 +100,8 @@ class Button(UIBase, Focusable):
         if not self._underMouse:
             # mouse over, change the  color to a lighter one, with animation
             self.curColor = ColorAnimate(self.curColor.get(), self.hovercolor)
-            if self != focus.get_focus():
-                self.set_as_focus()
+            # if self != focus.get_focus():
+            #     self.set_as_focus()
             self._underMouse = True
 
     def on_mouse_out(self, *args):
@@ -126,4 +127,4 @@ class TransButton(Button):
             )
     def init(self):
         Button.init(self)
-        focus.remove_focus_obj(self)
+        # focus.remove_focus_obj(self)

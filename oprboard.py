@@ -1,5 +1,7 @@
 from pgui import UIBase, Button, Label, InputBox, Root 
+from pgui.uiconsts import *
 from pgui.root import warn, hint
+import pygame as pg
 
 class OprBoard(UIBase):
     def init(self):
@@ -8,15 +10,31 @@ class OprBoard(UIBase):
         # home, play/pause, end, sync
         btn_home = Button(self, caption='<<',
                 pos=(margin , margin), size=(btnSize))
-        btn_play = Button(self, caption='play', 
+        btn_home.bind_command(self.cb_home)
+
+        self.btn_play = btn_play = Button(self, caption='play', 
                 pos=(margin + btnSize[0] + 1, margin), size=(btnSize))
-        btn_pause = Button(self, caption='pause', 
+        btn_play.bind_command(self.cb_play)
+
+        self.btn_pause = btn_pause = Button(self, caption='pause', 
                 pos=(margin + btnSize[0] + 1, margin), size=(btnSize))
         btn_pause.hide()
+        btn_pause.bind_command(self.cb_pause)
+
+        # bind toggle
+        self.bind_key(pg.K_SPACE, self.cb_toggle)
+        
         btn_end = Button(self, caption='>>', 
                 pos=(margin + 2*(btnSize[0] + 1), margin), size=(btnSize))
-        btn_sync = Button(self, caption='sync', 
+        btn_end.bind_command(self.cb_end)
+
+        self.btn_sync = btn_sync = Button(self, caption='sync', 
                 pos=(margin + 3*(btnSize[0] + 1), margin), size=(btnSize))
+        btn_sync.bind_command(self.cb_sync)
+
+        self.btn_unsync = btn_unsync = Button(self, caption='unsync', 
+                pos=(margin + 3*(btnSize[0] + 1), margin), size=(btnSize))
+        btn_unsync.bind_command(self.cb_unsync)
 
         # angle: [   ]
         label_angle = Label(self, text='angle:',
@@ -35,10 +53,36 @@ class OprBoard(UIBase):
         self.servoc.go_end()
 
     def cb_play(self, *args):
-        self.servoc.play()
+        if self.btn_play.is_visible():
+            hint('start playing')
+            self.servoc.play()
+            self.btn_play.hide()
+            self.btn_pause.show()
+
+    def cb_toggle(self, *args):
+        if self.btn_pause.is_visible():
+            hint('paused')
+            self.servoc.pause()
+            self.btn_play.show()
+            self.btn_pause.hide()
+        else:
+            hint('start playing')
+            self.servoc.play()
+            self.btn_play.hide()
+            self.btn_pause.show()
 
     def cb_pause(self, *args):
-        self.servoc.pause()
+        if self.btn_pause.is_visible():
+            hint('paused')
+            self.servoc.pause()
+            self.btn_play.show()
+            self.btn_pause.hide()
+
+    def cb_sync(self, *args):
+        pass
+
+    def cb_unsync(self, *args):
+        pass
 
     def cb_angle(self):
         # v: the new input value
@@ -61,4 +105,14 @@ class OprBoard(UIBase):
         except Exception as ex:
             warn(str(ex))
             self.input_angle.text = ''
+
+    def cb_sync(self):
+        self.servo.connect_robot()
+
+    def update_info(self):
+        servoc = self.servoc
+        servo = servoc.servos[servoc.actived]
+        if servo.selected is not None:
+            self.input_angle.text = str(servo.get_a_at(servo.selected))
+            self.input_angle.mark_redraw()
 

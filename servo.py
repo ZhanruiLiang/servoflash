@@ -3,326 +3,20 @@ from pgui.label import Label
 from pgui.inputbox import InputBox
 from pgui.timer import Timer
 from pgui.root import Root, warn, hint
+from servoproxy import InvalidCommandError, CommandProxy
+from saveload import SaveLoadManager
+from servoboard import ServoBoard, KeyFrame
+import string
 import random
-import yaml
-import cPickle
 import os
-import shutil
 import math
-
-TIME_STEP = 0.02
-
-class KeyFrame:
-    def __init__(self, dti, a):
-        self.dti = max(1, dti)
-        self.a = a
-    def __repr__(self):
-        return 'frame(a=%d, dti=%d)' % (self.a, self.dti)
-
-class LoadSaveError(Exception):
-    pass
-
-class ServoBoard(UIBase):
-    LIGHT_COLOR = (204, 178, 181, 0xff)
-    LIGHT_COLOR2 = (220, 200, 193, 0x88)
-    DARK_COLOR = (0, 33, 66, 0xff)
-    POINT_COLOR = (0xff, 0, 0, 0xff)
-    RULER_COLOR = (240, 230, 150, 255)
-    LABEL_COLOR = (170, 170, 170, 120)
-    MIN_HEIGHT = 40
-    AllArgs = update_join(UIBase.AllArgs, 
-            selectcolor='(0, 160, 245, 155)',
-            bgcolor='(250, 250, 200, 255)',
-            sid='0', # servo id
-            label='"servo"',
-            bias='0', # servo bias, such that: bias + direction * angle * (1024/360) = actualADValue
-            direction='1', 
-            viewpos='0', # time index
-            min='0', # angle min
-            max='200', # angle max
-            framewidth='10',
-            )
-
-    ArgsOrd = ord_join(UIBase.ArgsOrd,
-            ['selectcolor', 'framewidth', 'sid', 'label', 'bias', 'min', 'max', 'direction', 'viewpos']
-            )
-    assert sorted(AllArgs.keys()) == sorted(ArgsOrd)
-
-    def __repr__(self):
-        return 'servo#%d' % self.sid
-
-    def init(self):
-        #  a0    |                              
-        #  |     a1                             
-        #  |     |                              
-        #  0-t0--1--t1----                      
-        #                                       
-        self.keyFrames = [KeyFrame(5, 0)]
-        # add many keyFrames randomly, for test purpose only
-        self.keyFrames = [KeyFrame(5, 0)]
-        self.playingPos = None
-
-        self.bgImage = self.image.copy()
-        self._redraw_bg()
-        self._actived = False
-        self.selected = None # the selected frame
-
-        self.labelUI = Label(self, text='%s(%d)' % (self.label, self.sid), 
-                bgcolor=self.LABEL_COLOR, color=(0, 0, 0, 255),
-                pos=(0, 0), size=(80, 20))
-        # self.bind(EV_MOUSEDOWN, self.start_drag)
-        # self.bind(EV_MOUSEUP, self.end_drag)
-        # self.bind(EV_MOUSEOUT, self.end_drag)
-        # self.bind(EV_DRAGOVER, self.on_drag)
-
-    @property
-    def sid(self):
-        return self._sid
-
-    @sid.setter
-    def sid(self, id):
-        self._sid = id
-        if hasattr(self, 'labelUI'):
-            self.labelUI.text = '%s(%d)' % (self.label, id)
-
-    def angle2ad(self, angle):
-        return int(self.bias + self.direction * angle * 1024 / 300)
-
-    def ad2angle(self, ad):
-        return (ad - self.bias)/self.direction * 300 / 1024
-
-    def is_safe_angle(self, angle):
-        return self.min <= angle <= self.max
-
-    def get_a_at(self, ti):
-        """
-        The the a value at time ti
-        """
-        i, dti = self.find_ti_pos(ti)
-        if i + 1 < len(self.keyFrames):
-            f1 = self.keyFrames[i]
-            f2 = self.keyFrames[i+1]
-            return int(f1.a + (f2.a - f1.a) / f1.dti * dti)
-        else:
-            return self.keyFrames[-1].a
-
-    def select_at(self, pos):
-        ti, a = self.screen_pos_to_ta(pos)
-        self.select(ti)
-
-    def select(self, ti):
-        self.selected = ti
-        hint('frame %d(a=%d)' %(ti, self.get_a_at(ti)))
-
-    def insert_key_frame(self, ti, a):
-        """
-        insert key frame at time ti, with value a
-        """
-        i, dti = self.find_ti_pos(ti)
-        keyFrames = self.keyFrames
-        if i < len(keyFrames):
-            newFrame = KeyFrame(keyFrames[i].dti - dti, a)
-            keyFrames[i].dti = max(1, dti)
-        else:
-            newFrame = KeyFrame(1, a)
-            keyFrames[-1].dti += dti
-        keyFrames.insert(i + 1, newFrame)
-        hint('insert %s' % newFrame)
-        self.mark_redraw()
-
-    def set_as_key_frame(self, ti):
-        """
-        set the frame at time ti as key frame
-        """
-        self.insert_key_frame(ti, self.get_a_at(ti))
-        self.remove_frame(ti + 1)
-        self.mark_redraw()
-
-    def insert_frame(self, ti, cnt=1):
-        i, dti = self.find_ti_pos(ti)
-        if i < len(self.keyFrames):
-            self.keyFrames[i].dti += cnt
-        else:
-            self.keyFrames[i-1].dti += dti
-        self.mark_redraw()
-
-    def remove_frame(self, ti):
-        i, dti = self.find_ti_pos(ti)
-        if i < len(self.keyFrames):
-            if dti > 0:
-                self.keyFrames[i].dti -= 1
-            elif i > 0:
-                self.keyFrames[i-1].dti += self.keyFrames[i].dti
-                del self.keyFrames[i]
-            self.mark_redraw()
-
-    def adjust_curframe(self, da):
-        if self.selected is not None:
-            i, dti = self.find_ti_pos(self.selected)
-            if i < len(self.keyFrames):
-                a = self.keyFrames[i].a + da
-                if self.min <= a <= self.max:
-                    self.keyFrames[i].a += da
-                    self.mark_redraw()
-                    self.select(self.selected)
-                else:
-                    warn("angle=%d out of range(%s)" %(a, (self.min, self.max)))
-
-    def _redraw_bg(self):
-        image = self.bgImage
-        image.fill(self.bgcolor)
-        w, h = self.size
-        w1 = self.framewidth
-        # draw the enclosing box rect
-        pg.draw.rect(image, self.LIGHT_COLOR, ((0, 0), (w, h)), 1)
-
-        for x in xrange(0, w, w1):
-            # draw a vertical line
-            # pg.draw.line(image, self.LIGHT_COLOR2, (x - w1/2, 0), (x - w1/2, h), 2)
-            pg.draw.line(image, self.LIGHT_COLOR, (x - w1/2, 0), (x - w1/2, h), 1)
-
-    def redraw(self, *args):
-        if self.bgImage.get_size() != self.ownImage.get_size():
-            self.bgImage = self.ownImage.copy()
-            self._redraw_bg()
-        image = self.ownImage
-        image.fill(COLOR_TRANS)
-        image.blit(self.bgImage, (0, 0))
-        i0, dti0 = self.find_ti_pos(self.viewpos)
-        w, h = self.size
-        w1 = self.framewidth
-
-        # draw the ruler
-        x0 = (5 - self.viewpos) % 5 * w1
-        for x in xrange(x0, w, 5 * w1):
-            pg.draw.rect(image, self.RULER_COLOR, ((x - w1/2 + 1, 0), (w1-2, h)))
-
-        if self.selected is not None:
-            # draw selected
-            x = int(w1 * (self.selected - self.viewpos - 0.5))
-            pg.draw.rect(image, self.selectcolor, ((x, 1), (max(1, w1), max(1, h-2))))
-        t0 = -self.viewpos
-        for i in xrange(0, i0):
-            t0 += self.keyFrames[i].dti
-        # draw vertical lines
-        t = t0
-        n = len(self.keyFrames)
-        prev = None
-        for i in xrange(i0, n):
-            frame = self.keyFrames[i]
-            x = t * w1
-            # the current point
-            cur = (x, self.a_to_screen(frame.a))
-            if prev is not None:
-                # link the prev point with current point
-                pg.draw.line(image, self.color, prev, cur, 2)
-            # draw the vertical dark line
-            pg.draw.line(image, self.DARK_COLOR, (x, 0), (x, h), 1)
-            t += frame.dti
-            prev = cur
-            if x > w: break
-        # draw dots
-        t = t0
-        for i in xrange(i0, n):
-            frame = self.keyFrames[i]
-            x = t * w1
-            cur = (x, self.a_to_screen(frame.a))
-            rect = pg.Rect((0, 0), (5, 5))
-            rect.center = cur
-            pg.draw.rect(image, self.POINT_COLOR, rect)
-            t += frame.dti
-            if x > w: break
-
-        self._redrawed = 1
-
-    def screen_pos_to_ta(self, pos):
-        """
-        convert the screen pos to (ti, a) pair
-
-        (t - viewpos) * framewidth = x
-        """
-        x, y = pos
-        ti = int(x / self.framewidth + self.viewpos)
-        a = int(y * 360 / self.size[1])
-        return ti, a
-
-    def on_click(self, event):
-        pos = self.get_local_pos_at(event.pos)
-        ti, a = self.screen_pos_to_ta(pos)
-        self.insert_key_frame(ti, a)
-
-    def a_to_screen(self, a):
-        """(a - min) * (max - min) / height = y"""
-        return int((a - self.min) * self.size[1] / max(self.MIN_HEIGHT, (self.max-self.min))) 
-
-    def find_ti_pos(self, ti):
-        """ find index i that keyFrames[i] <= ti < keyFrames[i+1]
-            if ti > = keyFrames[-1], return (len(keyFrames), ti - t)
-            return: (i, tj) that sum(keyFrames[k] for k in [0...i]) + tj = ti
-        """
-        t = 0
-        for i, frame in enumerate(self.keyFrames):
-            if ti < t + frame.dti:
-                return i, ti - t
-            t += frame.dti
-        return i + 1, ti - t
-
-    def set_servo(self, angle, speed):
-        if self.is_safe_angle(angle):
-            adv = self.angle2ad(angle)
-            ServoBoard.set_servo_pos(self.id, adv, speed)
-        else:
-            interval = self.min, self.max
-            warn('%(angle)d out of range, need to be in %(interval)s, in %(self)s' % locals())
-
-    def play(self):
-        pass
-
-    def start_drag(self, event):
-        if event.type == MOUSEMOTION or \
-                event.type == MOUSEBUTTONDOWN and event.button == BTN_MOUSELEFT:
-            # self._dragging = True
-            self._dragStartPos = event.pos
-            self._viewpos0 = self.viewpos
-
-    def end_drag(self, event):
-        # self._dragging = False
-        self._dragStartPos = None
-
-    def on_drag(self, event):
-        if self._dragStartPos is None: 
-            self.start_drag(event)
-        else:
-            dx, dy = V2I(event.pos) - self._dragStartPos
-            self.viewpos =  max(0, self._viewpos0 - dx / self.framewidth)
-            self.mark_redraw()
-
-    def active(self):
-        if not self._actived:
-            self._actived = True
-            # TODO: animation
-            self.labelUI.bgcolor=self.selectcolor
-            self.labelUI.mark_redraw()
-            self.mark_redraw()
-
-    def deactive(self):
-        if self._actived:
-            self._actived = False
-            self.selected = None
-            self.labelUI.bgcolor=self.LABEL_COLOR
-            self.labelUI.mark_redraw()
-            # TODO: animation
-            self.mark_redraw()
-
-    def is_actived(self):
-        return self._actived;
 
 def raise_(ex): raise ex
 
 class ServoControl(UIBase):
     AllArgs = update_join(UIBase.AllArgs, 
-            bgcolor="(0x88, 0x88, 0x88, 255)",
-            color="(0, 0xff, 0, 255)",
+            bgcolor="(0x08, 0x08, 0x08, 255)",
+            color="(0x5f, 0xaf, 0xaf, 255)",
             size="(500, 600)",
             viewpos="(0, 0)",
             )
@@ -330,52 +24,113 @@ class ServoControl(UIBase):
             ['viewpos'])
     assert sorted(AllArgs.keys()) == sorted(ArgsOrd)
 
-    SERVO_ATTRS = ['sid', 'bias', 'direction', 'min', 'max']
+    SERVO_ATTRS = ['sid', 'label', 'bias', 'direction', 'min', 'max']
     SERVO_ATTR_EVALS = [
             lambda s: int(s) if 1 <= int(s) <= 255 else raise_(ValueError("out of range[1, 255]")),
+            lambda s: s if not any(c for c in s if c not in string.letters + string.digits) else raise_(ValueError("invalid")),
             lambda s: int(s) if 0 <= int(s) <= 1023 else raise_(ValueError("out of range[0, 1024)")),
             lambda s: int(s) if int(s) in (-1, 1) else raise_(ValueError("direction must be 1 or -1")),
             lambda s: int(s) if 0 <= int(s) <= 1023 else raise_(ValueError("out of range[0, 1024)")),
             lambda s: int(s) if 0 <= int(s) <= 1023 else raise_(ValueError("out of range[0, 1024)")),
             ]
 
+    RULER_HEIGHT = 14
+    FRAME_WIDTH = ServoBoard.FRAME_WIDTH
+    MARGIN = 3
+
     def init(self):
         self.servos = [ServoBoard(self)]
-        self.actived = 0
+        self.slmgr = SaveLoadManager(self)
         self.bind(EV_KEYPRESS, self.on_keypress, BLK_POST_BLOCK)
-        self.board = None
+        self.ruler = Ruler(self, pos=(self.MARGIN, 0), 
+                size=(self.size[0], self.RULER_HEIGHT),
+                color=(0, 0, 0, 0xff),
+                bgcolor=(0, 0xff, 0, 0xff))
 
-        self.lastSave = None
-        self.lastSaveData = None
+        self.actived = 0
+        self._playing = False
+        self._synced = False
+        self.playPos = 0
+        self.timeStep = 0.1
+        self.playFPS = 1./self.timeStep
 
-        # self.animateTm = Timer(0.05, self.animate)
-        # Timer.add(self.animateTm)
-        # self.animateTm.pause()
+        self.animateTm = None
+        self.set_play_FPS(self.playFPS)
 
-        # self._moveDist = 0
-        # self._t = 0
-        # self._moveSpeed = 5
+    def reset(self):
+        if self._playing:
+            self.pause()
+        if self._synced:
+            self.disconnect_robot()
+        self.playPos = 0
+        self.ruler.mark_redraw()
+        self.select_servo(0)
+
+    def set_play_FPS(self, fps):
+        try:
+            # fps must be integer
+            fps = int(fps)
+        except ValueError as ex:
+            warn(str(ex))
+            return
+        if self.animateTm:
+            Timer.remove(self.animateTm)
+        self.animateTm = Timer(1./fps, self.animate)
+        Timer.add(self.animateTm)
+        self.playFPS = fps
+        self.timeStep = 1. / fps
+
+    def set_servo(self):
+        proxy = self.proxy
+        for servo in self.servos:
+            angle = servo.get_a_at(self.playPos)
+            speed = 512
+            if servo.is_safe_angle(angle):
+                adv = servo.angle2ad(angle)
+                proxy.set_servo_pos(self.id, adv, speed)
+            else:
+                interval = self.min, self.max
+                warn('%(angle)d out of range, need to be in %(interval)s, in %(self)s' % locals())
 
     def animate(self, dt):
-        pass
+        if not self._playing: return
+        self.playPos += 1
+        if self.playPos - self.viewpos[0] > self.size[1]/ServoBoard.FRAME_WIDTH:
+            self.move_view(1)
+        elif self.playPos < self.viewpos[0]:
+            self.move_view(-1)
+        self.ruler.mark_redraw()
+        if self._synced:
+            self.set_servo()
 
     def on_select(self, servo):
+        # stub
         pass
 
     def on_select_servo(self, servo):
+        # stub
         pass
 
     def play(self):
-        pass
+        self._playing = True
 
     def pause(self):
-        pass
+        self._playing = False
+        self.move_frame(self.playPos - self.get_current_frame())
 
     def connect_robot(self):
-        pass
+        if self.proxy is None:
+            try:
+                self.proxy = CommandProxy()
+            except Exception as ex:
+                warn('connect proxy failed. %s' % ex)
+                self.proxy = None
+            else:
+                hint('proxy connected')
+                self._synced = True
 
     def disconnect_robot(self):
-        pass
+        self._synced = False
 
     @property
     def viewpos(self):
@@ -390,6 +145,12 @@ class ServoControl(UIBase):
                 servo.viewpos = x
                 servo.mark_redraw()
             self.mark_redraw()
+
+    def move_view(self, d):
+        x, y = self.viewpos
+        dx = self.size[1] / ServoBoard.FRAME_WIDTH / 1
+        self.viewpos = max(0, x + d * dx), y
+        self.move_frame(d*dx)
 
     def on_keypress(self, event):
         key = event.key
@@ -410,32 +171,16 @@ class ServoControl(UIBase):
                 servo.remove_frame(ti)
         elif key in (K_h, K_LEFT) and (event.mod & KMOD_SHIFT):
             # move view left
-            x, y = self.viewpos
-            self.viewpos = max(0, x - 5), y
+            self.move_view(-1)
         elif key in (K_h, K_LEFT):
             # select previous frame
-            ti = servo.selected
-            if ti is None:
-                ti = sum(f.dti for f in servo.keyFrames) - 1
-            else:
-                ti = max(0, ti - 1)
-            servo.select(ti)
-            self.on_select(servo)
-            servo.mark_redraw()
+            self.move_frame(-1)
         elif key in (K_l, K_RIGHT) and (event.mod & KMOD_SHIFT):
             # move view right
-            x, y = self.viewpos
-            self.viewpos = max(0, x + 5), y
+            self.move_view(1)
         elif key in (K_l, K_RIGHT):
             # select next frame
-            ti = servo.selected
-            if ti is None:
-                ti = 0
-            else:
-                ti += 1
-            servo.select(ti)
-            self.on_select(servo)
-            servo.mark_redraw()
+            self.move_frame(1)
         elif key in (K_j, K_DOWN) and event.mod & KMOD_SHIFT:
             # adjust increase angle
             if event.mod & KMOD_ALT:
@@ -477,10 +222,17 @@ class ServoControl(UIBase):
             self.servos[-1].keyFrames = ([KeyFrame(5, 0)] + [
                 KeyFrame(random.randint(1, 10), 
                     random.randint(servo.min, servo.max)) 
-                for i in xrange(5)])
+                for i in xrange(50)])
         self.actived = 0
         self.servos[0].active()
+        self.reset()
         self.mark_redraw()
+
+    def load_servos(self, filename):
+        self.slmgr.load(filename)
+
+    def save_servos(self, filename):
+        self.slmgr.save(filename)
 
     def remove_servo(self, *args):
         if len(args) == 0:
@@ -494,52 +246,34 @@ class ServoControl(UIBase):
             self.servos = [s for s in self.servos if not s._destoryed]
         self.mark_redraw()
 
-    def gen_save_data(self):
-        data = {}
-        data['servos'] = servosData = []
-        for servo in self.servos:
-            adata = {}
-            for attr in self.SERVO_ATTRS:
-                adata[attr] = getattr(servo, attr)
-            adata['keyFrames'] = [(kf.a, kf.dti) for kf in servo.keyFrames]
-            servosData.append(adata)
-        return data
+    def get_current_frame(self):
+        return self.servos[self.actived].selected
 
-    def load_servos(self, filename):
-        try:
-            with open(filename, 'rb') as f:
-                data = cPickle.load(f)
-            servosData = data['servos']
-            self.remove_servo()
-            for adata in servosData:
-                keyFrames = adata['keyFrames']
-                del adata['keyFrames']
-                servo = ServoBoard(self, **adata)
-                del servo.keyFrames[:]
-                for a, dti in keyFrames:
-                    servo.keyFrames.append(KeyFrame(dti, a))
-                self.add_servo(servo)
-        except Exception as ex:
-            raise LoadSaveError(ex)
-        self.lastSave = filename
-        self.mark_redraw()
+    def move_frame(self, d):
+        servo = self.servos[self.actived]
+        ti = self.get_current_frame()
+        if ti is None:
+            ti = 0
+        else:
+            ti += d
+        ti = max(0, ti)
+        if ti < self.viewpos[0]:
+            x, y = self.viewpos
+            self.viewpos = ti, y
+        else:
+            x, y = self.viewpos
+            tw = self.size[0]/self.FRAME_WIDTH
+            if ti >= self.viewpos[0] + tw:
+                self.viewpos = ti - tw + 1, y
 
-    def save_servos(self, filename):
-        try:
-            if os.path.exists(filename):
-                # file exist, backup
-                self.backup_file(filename)
-        except IOError as e:
-            warn('%r' % e)
-        try:
-            data = self.gen_save_data()
-            with open(filename, 'wb') as f:
-                cPickle.dump(data, f, -1)
-                self.lastSave = filename
-                self.lastSaveData = data
-        except Exception as ex:
-            raise LoadSaveError(ex)
-        hint('save data to file "%s"' % filename)
+        servo.select(ti)
+        if not self._playing:
+            self.on_select(servo)
+        servo.mark_redraw()
+        if not self._playing:
+            self.playPos = ti
+            self.ruler.mark_redraw()
+
 
     def add_servo(self, servo=None):
         if servo is None:
@@ -548,28 +282,14 @@ class ServoControl(UIBase):
         servo.viewpos = self.viewpos[0]
         self.mark_redraw()
 
-    def backup_file(self, filename):
-        MaxBackupNum = 5
-        files = []
-        for i in xrange(MaxBackupNum):
-            backupName = '.%s.~%d~' % (filename, i+1)
-            if not os.path.exists(backupName):
-                break
-            files.append((os.stat(backupName).st_ctime, backupName))
-        else:
-            files.sort()
-            backupName = files[0][1]
-        shutil.copyfile(filename, backupName)
-        hint('backup "%s" as "%s"' % (filename, backupName))
-
     def redraw(self, *args):
         self._redrawed = 1
-        bw = 3
+        bw = self.MARGIN
         w0, h0 = self.size
         w = w0 - 2 * bw
         h = (h0 - bw) / max(1, len(self.servos)) - bw
         h = max(ServoBoard.MIN_HEIGHT, h)
-        x, y = bw, bw - self.viewpos[1]
+        x, y = bw, self.RULER_HEIGHT + bw - self.viewpos[1]
         image = self.ownImage
         image.fill(self.bgcolor)
         for servo in self.servos:
@@ -580,3 +300,45 @@ class ServoControl(UIBase):
             if servo.is_actived():
                 pg.draw.rect(image, self.color, pg.Rect((0, y-bw), (w0, h+2*bw)))
             y += h + bw
+
+
+class RulerHead(UIBase):
+    def redraw(self, *args):
+        image = self.ownImage
+        image.fill(COLOR_TRANS)
+        pg.draw.polygon(image, self.color,
+                [(0, 1), (self.size[0]-1, 1), ((self.size[0]-1)/2, self.size[1]-1)])
+        self._redrawed = 1
+
+class Ruler(UIBase):
+    fontr = pg.font.Font(os.path.join(RES_DIR, 'MonospaceTypewriter.ttf'), 10)
+    def init(self):
+        self.servoc = self.parent
+        self.head = RulerHead(self, color=(0xff, 0, 0, 0x88),
+                pos=(-20, 0), size=(8, self.size[1]))
+        self._drawnViewpos = None
+
+    def redraw(self, *args):
+        servoc = self.servoc
+        w0 = servoc.FRAME_WIDTH
+        viewpos = servoc.viewpos[0]
+        if viewpos != self._drawnViewpos:
+            image = self.ownImage
+            fps = servoc.playFPS
+            w, h = self.size
+            # start draw from time t0, mark at every second
+            t0 = viewpos - (viewpos - 1) % fps + fps - 1
+            x = 0
+            t = t0
+            image.fill(self.bgcolor)
+            while x < w:
+                x = (t - viewpos) * w0
+                # draw vertical ruler
+                pg.draw.line(image, self.color, (x, 0), (x, max(2, h-5)))
+                # draw the time flag
+                image.blit(self.fontr.render('%d' % (t * servoc.timeStep), 1, self.color), (x + 1, 0))
+                t += fps
+            self._drawnViewpos = viewpos
+        # draw the playing head
+        self.head.pos = ((servoc.playPos - viewpos) * w0 - w0/2, 0)
+        self._redrawed = 1

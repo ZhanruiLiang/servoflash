@@ -9,3 +9,16 @@ Keys:
     - L: grab board right
 
     - J/K, Alt-J, Alt-K: adjust frame angle value
+
+TODO:
+    - connect / disconnect
+    - play / pause
+    - add playing speed controlling
+    - add some scroll bars
+    - make a cmd panel
+    - speedup board scrolling
+    - name the document suffix
+    - re-design a clean look of the main controll boardo
+
+Author:
+    Ray, ray040123@gmail.com

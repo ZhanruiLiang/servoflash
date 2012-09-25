@@ -8,7 +8,9 @@ import focus
 # using new style class
 __metaclass__ = type
 
-pg.display.set_mode((SCREEN_W, SCREEN_H), VFLAG, 32)
+# pg.init()
+pg.display.init()
+pg.display.set_mode((SCREEN_W, SCREEN_H), VFLAG)
 
 def rects_join(rects):
     if not rects: return None
@@ -73,7 +75,7 @@ class UIBase(EventHandler, pg.sprite.Sprite):
     def is_visible(self):
         x = self
         while x:
-            if x._visible == False:
+            if x._visible is False:
                 return False
             x = x.parent
         return True
@@ -92,6 +94,8 @@ class UIBase(EventHandler, pg.sprite.Sprite):
 
     def destory(self):
         if not self._destoryed:
+            for child in self.childs:
+                child.destory()
             self._destoryed = True
             self.parent.remove_child(self)
             self.parent.mark_redraw()
@@ -108,7 +112,7 @@ class UIBase(EventHandler, pg.sprite.Sprite):
             self._redrawed = 1
 
     def __repr__(self, shows=['id', 'pos', 'level']):
-        shows = []
+        # shows = []
         args = ','.join('%s=%s' % (attr, getattr(self, attr)) 
                             for attr in shows if attr != 'parent' and hasattr(self, attr))
         return '%s(%s)' % (self.__class__.__name__, args)
@@ -116,6 +120,7 @@ class UIBase(EventHandler, pg.sprite.Sprite):
     def resize(self, size):
         self.size = size
         self.image = pg.Surface(self.size).convert_alpha()
+        # self.image = pg.Surface(self.size).convert()
         self.ownImage = self.image.copy()
         self.rect = pg.Rect(self.pos, size)
         self.mark_redraw()
@@ -163,40 +168,15 @@ class UIBase(EventHandler, pg.sprite.Sprite):
 
         if ownImage:
             pg.draw.rect(image, COLOR_TRANS, rect)
-            # print self, 'blit own', rect, rect
+            # print 'blit own', self, rect 
             image.blit(ownImage, rect, rect)
         # render the lowwer level ones first.
         for child in reversed(self.childs):
             if child.rect.colliderect(rect):
                 x, y = child.rect.topleft
+                # print 'blit child', self, rect
                 image.blit(child.image, rect, rect.move((-x, -y)))
         return rect.move(self.rect.topleft)
-
-
-    def _update_bak(self, *args):
-    # def update(self, *args):
-        """ Update the affected area.
-            If readlly updated, return True, else False
-        """
-        if self._needRedraw:
-            self.redraw()
-            self._needRedraw = 0
-        image = self.image
-        ownImage = self.ownImage
-        self.rect.topleft = self.pos
-
-        affected = any([c.update(*args) for c in self.childs])
-        affected = affected or self._redrawed 
-        self._redrawed = 0
-        if not affected: 
-            return False
-        if ownImage:
-            image.fill(COLOR_TRANS)
-            image.blit(ownImage, (0, 0))
-        # render the lowwer level ones first.
-        for child in reversed(self.childs):
-            image.blit(child.image, child.rect)
-        return self.rect
 
     def _child_cmp(self, c1, c2):
         return cmp(c2.level, c1.level)

@@ -52,6 +52,7 @@ class EventHandler:
         """ try handle the event.
         return True if the event is blocked at this object.
         """
+        # print 'event at', event, self
         if eventType in self._eventHandlers:
             # test if self should handle the event
             # self should handle iff:
@@ -74,7 +75,8 @@ class EventHandler:
                 if blocked: return True
                 # pass the event to childs
                 # NOTE: the `any` function on a sequence generator is lazy.
-                #       So a child may block its brother. So the childs list should be sorted from high level to low.
+                #       So a child may block its brother. 
+                #       And the childs list should be sorted from high level to low.
                 blocked = any(child.on_event(eventType, event) for child in self.childs)
                 if blocked: return True
 
@@ -85,7 +87,7 @@ class EventHandler:
                 for handler in bHandlers[BLK_POST_NONBLOCK]:
                     handler(event)
                 return blocked
-        # event not handled by self, pass it the child
+        # event not handled by self, pass it to the child
         blocked = any(child.on_event(eventType, event) for child in self.childs)
         return blocked
 

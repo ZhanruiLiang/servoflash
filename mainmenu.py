@@ -1,4 +1,5 @@
 import pgui
+from pygame.locals import *
 
 class MainMenu(pgui.Menu):
     def __init__(self, root, servoControl, **args):
@@ -24,39 +25,46 @@ class MainMenu(pgui.Menu):
         self.add_item('help', self.cb_help)
         self.add_item('quit', self.cb_quit)
 
+        self.bind_key(K_l, self.cb_load, KMOD_CTRL)
+        self.bind_key(K_s, self.cb_save, KMOD_CTRL)
+        self.bind_key(K_s, self.cb_save_as, KMOD_CTRL | KMOD_SHIFT)
+        self.bind_key(K_q, self.cb_quit)
+
     def cb_quit(self, *args):
         pgui.Root.instance.quit()
 
     def cb_save_as(self, *args):
         prompt = "Save: Type in the file path to save."
+        slmgr = self.servoc.slmgr
         pgui.Root.instance.show_dialog(pgui.Dialog(
-            prompt, lambda p:self.servoc.save_servos(p),
+            prompt, lambda p:slmgr.save(p),
             20, # emergency
-            self.servoc.lastSave or ''))
+            slmgr.lastSave or ''))
 
     def cb_save(self, *args):
-        servoc = self.servoc
-        if servoc.lastSave is not None:
-            servoc.save_servos(servoc.lastSave)
+        slmgr = self.servoc.slmgr
+        if slmgr.lastSave is not None:
+            slmgr.save(slmgr.lastSave)
         else:
             self.cb_save_as()
 
     def cb_load(self, *args):
-        servoc = self.servoc
+        slmgr = self.servoc.slmgr
         self.prompt_unsaved()
 
         prompt = "Load: Type in the file path you want to load."
         pgui.Root.instance.show_dialog(pgui.Dialog(
-            prompt, lambda p:servoc.load_servos(p),
+            prompt, lambda p:slmgr.load(p),
             10, 
-            servoc.lastSave or ''))
+            slmgr.lastSave or ''))
 
     def prompt_unsaved(self):
         servoc = self.servoc
+        slmgr = self.servoc.slmgr
         #prompt to save current
-        savedData = servoc.lastSaveData
+        savedData = slmgr.lastSaveData
         prompt = "Current data is not saved. Would you like to save it?"
-        if savedData == servoc.gen_save_data():
+        if savedData == slmgr.gen_save_data():
             return
         # prompt to save current
         dialog = pgui.OptionDialog(prompt, 

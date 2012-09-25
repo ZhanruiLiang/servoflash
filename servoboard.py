@@ -52,15 +52,18 @@ class ServoBoard(UIBase):
         self.bgImage = self.image.copy()
         self._redraw_bg()
         self._actived = False
+        self._dragStartPos = None
         self.selected = 0# the selected frame
 
         self.labelUI = Label(self, text='%s(%d)' % (self.label, self.sid), 
                 bgcolor=self.LABEL_COLOR, color=(0, 0, 0, 255),
                 pos=(0, 0), size=(80, 20))
-        # self.bind(EV_MOUSEDOWN, self.start_drag)
-        # self.bind(EV_MOUSEUP, self.end_drag)
-        # self.bind(EV_MOUSEOUT, self.end_drag)
-        # self.bind(EV_DRAGOVER, self.on_drag)
+        self.bind(EV_MOUSEDOWN, self.start_drag)
+        self.bind(EV_MOUSEUP, self.end_drag)
+        self.bind(EV_MOUSEOUT, self.end_drag)
+        self.bind(EV_DRAGOVER, self.on_drag)
+
+        self.bind(EV_MOUSEDOWN, self.on_click)
 
     @property
     def sid(self):
@@ -102,13 +105,25 @@ class ServoBoard(UIBase):
         else:
             return self.keyFrames[-1].a
 
-    def select_at(self, pos):
-        ti, a = self.screen_pos_to_ta(pos)
+    def select_at_pos(self, pos):
+        ti, a = self.pos_to_ta(pos)
         self.select(ti)
+        self.mark_redraw()
 
     def select(self, ti):
         self.selected = ti
+        self.mark_redraw()
         hint('frame %d(a=%d, t=%.3fs)' %(ti, self.get_a_at(ti), ti * self.parent.timeStep))
+
+    def on_click(self, event):
+        if self._actived:
+            pos = event.pos
+            self.select_at_pos(pos)
+        else:
+            return True
+
+    def total_frame(self):
+        return sum(frame.dti for frame in self.keyFrames)
 
     def insert_key_frame(self, ti, a):
         """
@@ -160,7 +175,16 @@ class ServoBoard(UIBase):
                 a = self.keyFrames[i].a + da
                 if self.min <= a <= self.max:
                     self.keyFrames[i].a += da
-                    self.mark_redraw()
+                    self.select(self.selected)
+                else:
+                    warn("angle=%d out of range(%s)" %(a, (self.min, self.max)))
+
+    def set_curframe(self, a):
+        if self.selected is not None:
+            i, dti = self.find_ti_pos(self.selected)
+            if i < len(self.keyFrames):
+                if self.min <= a <= self.max:
+                    self.keyFrames[i].a = a
                     self.select(self.selected)
                 else:
                     warn("angle=%d out of range(%s)" %(a, (self.min, self.max)))
@@ -194,7 +218,7 @@ class ServoBoard(UIBase):
         for x in xrange(x0, w, 5 * w1):
             pg.draw.rect(image, self.RULER_COLOR, ((x - w1/2 + 1, 1), (w1-1, h-2)))
 
-        if self.selected is not None:
+        if self._actived and self.selected is not None:
             # draw selected
             x = int(w1 * (self.selected - self.viewpos - 0.5))
             pg.draw.rect(image, self.selectcolor, ((x, 1), (max(1, w1), max(1, h-2))))
@@ -208,7 +232,7 @@ class ServoBoard(UIBase):
         for i in xrange(i0, n):
             frame = self.keyFrames[i]
             x = t * w1
-            y = self.a_to_screen(frame.a)
+            y = self.a_to_y(frame.a)
             # the current point
             cur = (x, y)
             if prev is not None:
@@ -224,7 +248,7 @@ class ServoBoard(UIBase):
         for i in xrange(i0, n):
             frame = self.keyFrames[i]
             x = t * w1
-            cur = (x, self.a_to_screen(frame.a))
+            cur = (x, self.a_to_y(frame.a))
             rect = pg.Rect((0, 0), (5, 5))
             rect.center = cur
             pg.draw.rect(image, self.POINT_COLOR, rect)
@@ -233,25 +257,29 @@ class ServoBoard(UIBase):
 
         self._redrawed = 1
 
-    def screen_pos_to_ta(self, pos):
+    def pos_to_ta(self, pos):
         """
         convert the screen pos to (ti, a) pair
 
         (t - viewpos) * FRAME_WIDTH = x
         """
-        x, y = pos
+        x, y = self.get_local_pos_at(pos)
         ti = int(x / self.FRAME_WIDTH + self.viewpos)
-        a = int(y * 360 / self.size[1])
+        a = self.y_to_a(y)
         return ti, a
 
-    def on_click(self, event):
-        pos = self.get_local_pos_at(event.pos)
-        ti, a = self.screen_pos_to_ta(pos)
-        self.insert_key_frame(ti, a)
+    # def on_click(self, event):
+    #     pos = self.get_local_pos_at(event.pos)
+    #     ti, a = self.pos_to_ta(pos)
+    #     self.insert_key_frame(ti, a)
 
-    def a_to_screen(self, a):
-        """(a - min) * (max - min) / height = y"""
+    def a_to_y(self, a):
+        """(a - min) / (max - min) * height = y"""
         return int((a - self.min) * self.size[1] / max(self.MIN_HEIGHT, (self.max-self.min))) 
+
+    def y_to_a(self, y):
+        """ y / height * (max - min) + min = a"""
+        return int(y * max(self.MIN_HEIGHT, self.max - self.min) / self.size[1] + self.min)
 
     def find_ti_pos(self, ti):
         """ find index i that keyFrames[i] <= ti < keyFrames[i+1]
@@ -265,23 +293,42 @@ class ServoBoard(UIBase):
             t += frame.dti
         return i + 1, ti - t
 
+    def point_under_mouse(self, pos):
+        ti, a = self.pos_to_ta(pos)
+        a0 = self.get_a_at(ti)
+        if abs(a - a0) <= 6:
+            return ti, a0
+        return None
+
     def start_drag(self, event):
-        if event.type == MOUSEMOTION or \
+        if self._actived and event.type == MOUSEMOTION or \
                 event.type == MOUSEBUTTONDOWN and event.button == BTN_MOUSELEFT:
-            # self._dragging = True
             self._dragStartPos = event.pos
+            self._pointPos = self.point_under_mouse(event.pos)
             self._viewpos0 = self.viewpos
+        else:
+            return True
 
     def end_drag(self, event):
-        # self._dragging = False
-        self._dragStartPos = None
+        if self._dragStartPos:
+            self._dragStartPos = None
+            x, y = self.parent.viewpos
+            self.parent.viewpos = self.viewpos, y
 
     def on_drag(self, event):
         if self._dragStartPos is None: 
             self.start_drag(event)
         else:
-            dx, dy = V2I(event.pos) - self._dragStartPos
-            self.viewpos =  max(0, self._viewpos0 - dx / self.FRAME_WIDTH)
+            if self._pointPos is not None:
+                ti, a0 = self._pointPos
+                x, y = self.get_local_pos_at(event.pos)
+                self.set_curframe(self.y_to_a(y))
+            else:
+                dx, dy = V2I(event.pos) - self._dragStartPos
+                self.viewpos =  max(0, self._viewpos0 - dx / self.FRAME_WIDTH)
+                x, y = self.parent.viewpos
+                self.parent.viewpos = self.viewpos, y
+
             self.mark_redraw()
 
     def active(self):

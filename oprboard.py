@@ -47,10 +47,10 @@ class OprBoard(UIBase):
         self.servoc = None
 
     def cb_home(self, *args):
-        self.servoc.go_home()
+        self.servoc.goto_frame(0)
 
     def cb_end(self, *args):
-        self.servoc.go_end()
+        self.servoc.goto_frame(-1)
 
     def cb_play(self, *args):
         if self.btn_play.is_visible():
@@ -78,12 +78,6 @@ class OprBoard(UIBase):
             self.btn_play.show()
             self.btn_pause.hide()
 
-    def cb_sync(self, *args):
-        pass
-
-    def cb_unsync(self, *args):
-        pass
-
     def cb_angle(self):
         # v: the new input value
         v = self.input_angle.text
@@ -107,7 +101,10 @@ class OprBoard(UIBase):
             self.input_angle.text = ''
 
     def cb_sync(self):
-        self.servo.connect_robot()
+        self.servoc.connect_robot()
+
+    def cb_unsync(self, *args):
+        self.servoc.disconnect_robot()
 
     def update_info(self):
         servoc = self.servoc
@@ -115,4 +112,3 @@ class OprBoard(UIBase):
         if servo.selected is not None:
             self.input_angle.text = str(servo.get_a_at(servo.selected))
             self.input_angle.mark_redraw()
-

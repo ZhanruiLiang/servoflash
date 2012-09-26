@@ -111,7 +111,7 @@ class UIBase(EventHandler, pg.sprite.Sprite):
             self.rect.topleft = self._pos
             self._redrawed = 1
 
-    def __repr__(self, shows=['id', 'pos', 'level']):
+    def __repr__(self, shows=['id', 'pos', 'size', 'level']):
         # shows = []
         args = ','.join('%s=%s' % (attr, getattr(self, attr)) 
                             for attr in shows if attr != 'parent' and hasattr(self, attr))
@@ -165,7 +165,6 @@ class UIBase(EventHandler, pg.sprite.Sprite):
             rect = rects_join(chdRects)
             if rect is None:
                 return None
-
         if ownImage:
             pg.draw.rect(image, COLOR_TRANS, rect)
             # print 'blit own', self, rect 

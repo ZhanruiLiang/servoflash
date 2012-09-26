@@ -14,10 +14,13 @@ class Timer(object):
 
     @staticmethod
     def update_all():
-        dt = Timer.clock.tick()/1000.
         Timer.timers = [tm for tm in Timer.timers if not tm.is_finished()]
+        dt = Timer.clock.tick()/1000.
+        clk1 = pg.time.Clock()
         for tm in Timer.timers:
             tm.update(dt)
+            dt += clk1.tick() / 1000.
+            # dt += Timer.clock.tick()/1000.
 
     def __init__(self, interval, callback, loop=0, delay=0.):
         assert interval > 0, "interval should be positive"

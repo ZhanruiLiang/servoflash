@@ -1,6 +1,10 @@
 Keys:
     - h: previous frame
     - l: next frame
+    - ^ : first frame
+    - $: last frame
+    - w: next key frame
+    - b: prev key frame
 
     - j: next servo
     - k: previous servo
@@ -10,8 +14,20 @@ Keys:
 
     - J/K, Alt-J, Alt-K: adjust frame angle value
 
+    - i: insert key frame
+    - I: insert normal frame
+    - d: delete selected frame
+
+    - Ctrl-s: save
+    - Ctrl-Shift-s(Ctrl-S): save as
+    - Ctrl-l: load
+
+    - SPACE: toggle play/pause
+
+    - ESC: cancel focus
+
 TODO:
-    - make a cmd panel
+    - make a cmd system
     - add playing speed controlling
     - speedup board scrolling
     - name the document suffix

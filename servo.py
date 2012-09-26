@@ -39,11 +39,10 @@ class ServoControl(UIBase):
     def init(self):
         self.servos = [ServoBoard(self)]
         self.slmgr = SaveLoadManager(self)
-        self.bind(EV_KEYPRESS, self.on_keypress, BLK_POST_BLOCK)
         self.ruler = Ruler(self, pos=(self.MARGIN, 0), 
-                size=(self.size[0], self.RULER_HEIGHT),
+                size=(self.size[0]-2*self.MARGIN, self.RULER_HEIGHT),
                 color=(0, 0, 0, 0xff),
-                bgcolor=(0, 0xff, 0, 0xff))
+                bgcolor=(0, 0xff, 0x92, 0xff))
         self.hbar = DragBar(self,
                 value=0,
                 minvalue=0,
@@ -70,6 +69,7 @@ class ServoControl(UIBase):
                 self.goto_frame(x1)
         self.hbar.bind_on_change(hbarCallBack)
         self.bind(EV_CLICK, self.on_click)
+        self.bind_keys()
 
     def reset(self):
         if self._playing:
@@ -79,6 +79,55 @@ class ServoControl(UIBase):
         self.playPos = 0
         self.ruler.mark_redraw()
         self.select_servo(0)
+
+    def bind_keys(self):
+        self.bind_key(K_i, self.insert_key_frame)
+        self.bind_key(K_i, self.insert_frame, KMOD_SHIFT)
+        self.bind_key(K_d, self.remove_frame)
+        # move view left
+        self.bind_key(K_h, lambda e: self.move_view(-1), KMOD_SHIFT)
+        # move view right
+        self.bind_key(K_l, lambda e: self.move_view(1), KMOD_SHIFT)
+        # select previous frame
+        self.bind_key(K_h, lambda e: self.move_frame(-1))
+        # select next frame
+        self.bind_key(K_l, lambda e: self.move_frame(1))
+        # select next key frame
+        self.bind_key(K_w, lambda e: self.next_key_frame())
+        # select previous key frame
+        self.bind_key(K_b, lambda e: self.prev_key_frame())
+        # adjust
+        adjSpeed = 5
+        self.bind_key(K_j, 
+                lambda e: self.servos[self.actived].adjust_curframe(1),
+                KMOD_ALT)
+        self.bind_key(K_j, 
+                (lambda e: self.servos[self.actived].adjust_curframe(adjSpeed)),
+                KMOD_SHIFT)
+        self.bind_key(K_k, 
+                lambda e: self.servos[self.actived].adjust_curframe(-1),
+                KMOD_ALT)
+        self.bind_key(K_k, 
+                lambda e: self.servos[self.actived].adjust_curframe(-adjSpeed),
+                KMOD_SHIFT)
+        # select next servo
+        self.bind_key(K_j, lambda e: self.select_servo(self.actived + 1))
+        # select previous servo
+        self.bind_key(K_k, lambda e: self.select_servo(self.actived - 1))
+
+    def next_key_frame(self):
+        servo = self.servos[self.actived]
+        ti = servo.selected
+        i, dti = servo.find_ti_pos(ti)
+        tot1 = sum(frame.dti for frame in servo.keyFrames[:i+1])
+        self.goto_frame(tot1)
+
+    def prev_key_frame(self):
+        servo = self.servos[self.actived]
+        ti = servo.selected
+        i, dti = servo.find_ti_pos(ti)
+        tot1 = sum(frame.dti for frame in servo.keyFrames[:max(0, i-1+bool(dti))])
+        self.goto_frame(tot1)
 
     def set_play_FPS(self, fps):
         try:
@@ -156,9 +205,9 @@ class ServoControl(UIBase):
         x, y = v
         if hasattr(self, 'servos'): 
             for servo in self.servos:
-                servo.viewpos = x
-                servo.mark_redraw()
-            self.mark_redraw()
+                if servo.viewpos != x:
+                    servo.viewpos = x
+                    servo.mark_redraw()
             self.ruler.mark_redraw()
 
     def move_view(self, d):
@@ -172,70 +221,32 @@ class ServoControl(UIBase):
         self.hbar.maxvalue = max(s.total_frame() for s in self.servos)
         self.hbar.value = self.viewpos[0]
 
-    def on_keypress(self, event):
-        key = event.key
+    def insert_key_frame(self, event):
         servo = self.servos[self.actived]
-        if key in (K_i,):
-            # insert key frame
-            ti = servo.selected
-            if ti is not None:
-                i, dti = servo.find_ti_pos(ti)
-                a = servo.get_a_at(ti)
-                if event.mod & KMOD_SHIFT:
-                    servo.insert_frame(ti)
-                else:
-                    servo.insert_key_frame(ti, a)
-                self.update_bar()
-        elif key in (K_d, K_DELETE, K_BACKSPACE):
-            ti = servo.selected
-            if ti is not None:
-                servo.remove_frame(ti)
-        elif key in (K_h, K_LEFT) and (event.mod & KMOD_SHIFT):
-            # move view left
-            self.move_view(-1)
-        elif key in (K_h, K_LEFT):
-            # select previous frame
-            self.move_frame(-1)
-        elif key in (K_l, K_RIGHT) and (event.mod & KMOD_SHIFT):
-            # move view right
-            self.move_view(1)
-        elif key in (K_l, K_RIGHT):
-            # select next frame
-            self.move_frame(1)
-        elif key in (K_j, K_DOWN) and event.mod & KMOD_SHIFT:
-            # adjust increase angle
-            if event.mod & KMOD_ALT:
-                servo.adjust_curframe(1)
-            else:
-                servo.adjust_curframe(5)
-        elif key in (K_k, K_UP) and event.mod & KMOD_SHIFT:
-            # decrease angle
-            if event.mod & KMOD_ALT:
-                servo.adjust_curframe(-1)
-            else:
-                servo.adjust_curframe(-5)
-        elif key in (K_j, K_DOWN):
-            # select next servo
-            self.select_servo(self.actived + 1)
-        elif key in (K_k, K_UP):
-            # select previous servo
-            self.select_servo(self.actived - 1)
-        else:
-            # did not accept this key
-            return True
+        servo.insert_key_frame(servo.selected)
+        self.update_bar()
+
+    def insert_frame(self, event):
+        servo = self.servos[self.actived]
+        servo.insert_frame(servo.selected)
+        self.update_bar()
+
+    def remove_frame(self, event):
+        servo = self.servos[self.actived]
+        servo.remove_frame(servo.selected)
+        self.update_bar()
 
     def select_servo(self, idx):
         if isinstance(idx, ServoBoard):
             idx = self.servos.index(idx)
         idx = idx % len(self.servos)
         if idx != self.actived:
-            self.servos[idx].selected = self.servos[self.actived].selected
+            self.servos[idx].select(self.servos[self.actived].selected)
             self.servos[self.actived].deactive()
-            self.servos[idx].active()
             self.actived = idx
-            self.on_select_servo(self.servos[idx])
             self.mark_redraw()
-
+        self.servos[idx].active()
+        self.on_select_servo(self.servos[idx])
         hint('switch to servo#%d' % self.servos[idx].sid)
 
     def new_servos(self, n=5):
@@ -298,6 +309,7 @@ class ServoControl(UIBase):
         self.mark_redraw()
 
     def redraw(self, *args):
+        print 'redraw main board'
         self._redrawed = 1
         bw = self.MARGIN
         w0, h0 = self.size

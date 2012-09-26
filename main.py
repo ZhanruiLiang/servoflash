@@ -56,9 +56,8 @@ mmenu = MainMenu(root, controller, level=200, pos=(1, 0))
 
 # start mainloop 
 controller.new_servos()
-controller.select_servo(controller.actived)
 root.show_hint('startup time: %.2f sec' % (time.clock()))
 
 # root.bind_key(pg.K_t, lambda e:controller.slmgr.load('save3'))
 root.mainloop()
-print pg.display.Info()
+# print pg.display.Info()

@@ -25,7 +25,7 @@ class EventHandler:
     def bind_key(self, key, handler, mod=0):
         def kcallback(event):
             if event.type == KEYDOWN and event.key == key:
-                if mod == 0 or event.mod & mod:
+                if mod and (mod & event.mod) or mod == event.mod:
                     handler(event)
                     return None
             return True

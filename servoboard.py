@@ -19,7 +19,7 @@ class ServoBoard(UIBase):
     FRAME_WIDTH = 6
     MIN_HEIGHT = 40
     AllArgs = update_join(UIBase.AllArgs, 
-            selectcolor='(0, 160, 245, 155)',
+            selectcolor='(0, 160, 245, 85)',
             bgcolor='(255, 255, 255, 255)',
             sid='0', # servo id
             label='"servo"',
@@ -39,31 +39,42 @@ class ServoBoard(UIBase):
         return 'servo#%d' % self.sid
 
     def init(self):
+        # abou keyFrame reprecentation
+        # here is an example of two keyFrames: 
+        #  [(t0, a0), (t1, a1)]
         #  a0    |                              
         #  |     a1                             
         #  |     |                              
         #  0-t0--1--t1----                      
-        #                                       
-        self.keyFrames = [KeyFrame(5, 0)]
-        # add many keyFrames randomly, for test purpose only
+        # 
+        # init values
         self.keyFrames = [KeyFrame(5, 0)]
         self.playingPos = None
-
         self.bgImage = self.image.copy()
         self._redraw_bg()
         self._actived = False
         self._dragStartPos = None
         self.selected = 0# the selected frame
-
+        # setup the select hinter
+        self.selectHinter = UIBase(self, pos=(0, 0),
+                bgcolor=self.selectcolor, 
+                size=(self.FRAME_WIDTH, self.size[1]))
+        self.selectHinter.hide()
+        # setup the label
         self.labelUI = Label(self, text='%s(%d)' % (self.label, self.sid), 
                 bgcolor=self.LABEL_COLOR, color=(0, 0, 0, 255),
                 pos=(0, 0), size=(80, 20))
+        # bind events
         self.bind(EV_MOUSEDOWN, self.start_drag)
         self.bind(EV_MOUSEUP, self.end_drag)
         self.bind(EV_MOUSEOUT, self.end_drag)
         self.bind(EV_DRAGOVER, self.on_drag)
-
         self.bind(EV_MOUSEDOWN, self.on_click)
+
+    def resize(self, nsize):
+        super(ServoBoard, self).resize(nsize)
+        if hasattr(self, 'selectHinter'):
+            self.selectHinter.resize((self.FRAME_WIDTH, self.size[1]))
 
     @property
     def sid(self):
@@ -106,30 +117,38 @@ class ServoBoard(UIBase):
             return self.keyFrames[-1].a
 
     def select_at_pos(self, pos):
+        "select the frame at global position `pos`."
         ti, a = self.pos_to_ta(pos)
         self.select(ti)
-        self.mark_redraw()
 
     def select(self, ti):
+        "select the frame at ti(th) place."
         self.selected = ti
-        self.mark_redraw()
+        x = int(self.FRAME_WIDTH * (self.selected - self.viewpos - 0.5))
+        self.selectHinter.pos = (x, 0)
         hint('frame %d(a=%d, t=%.3fs)' %(ti, self.get_a_at(ti), ti * self.parent.timeStep))
 
     def on_click(self, event):
         if self._actived:
             pos = event.pos
             self.select_at_pos(pos)
+            if event.mod & KMOD_ALT:
+                ti, a = self.pos_to_ta(event.pos)
+                self.insert_key_frame(ti, a)
         else:
+            # ignore this event
             return True
 
     def total_frame(self):
         return sum(frame.dti for frame in self.keyFrames)
 
-    def insert_key_frame(self, ti, a):
+    def insert_key_frame(self, ti, a=None):
         """
         insert key frame at time ti, with value a
         """
         i, dti = self.find_ti_pos(ti)
+        if a is None: 
+            a = self.get_a_at(ti)
         keyFrames = self.keyFrames
         if i < len(keyFrames):
             newFrame = KeyFrame(keyFrames[i].dti - dti, a)
@@ -176,6 +195,7 @@ class ServoBoard(UIBase):
                 if self.min <= a <= self.max:
                     self.keyFrames[i].a += da
                     self.select(self.selected)
+                    self.mark_redraw()
                 else:
                     warn("angle=%d out of range(%s)" %(a, (self.min, self.max)))
 
@@ -186,6 +206,7 @@ class ServoBoard(UIBase):
                 if self.min <= a <= self.max:
                     self.keyFrames[i].a = a
                     self.select(self.selected)
+                    self.mark_redraw()
                 else:
                     warn("angle=%d out of range(%s)" %(a, (self.min, self.max)))
 
@@ -196,7 +217,6 @@ class ServoBoard(UIBase):
         w1 = self.FRAME_WIDTH
         # draw the enclosing box rect
         pg.draw.rect(image, self.LIGHT_COLOR, ((0, 0), (w, h)), 1)
-
         for x in xrange(0, w, w1):
             # draw a vertical line
             # pg.draw.line(image, self.LIGHT_COLOR2, (x - w1/2, 0), (x - w1/2, h), 2)
@@ -218,10 +238,10 @@ class ServoBoard(UIBase):
         for x in xrange(x0, w, 5 * w1):
             pg.draw.rect(image, self.RULER_COLOR, ((x - w1/2 + 1, 1), (w1-1, h-2)))
 
-        if self._actived and self.selected is not None:
-            # draw selected
-            x = int(w1 * (self.selected - self.viewpos - 0.5))
-            pg.draw.rect(image, self.selectcolor, ((x, 1), (max(1, w1), max(1, h-2))))
+        # if self._actived and self.selected is not None:
+        #     # draw selected
+        #     x = int(w1 * (self.selected - self.viewpos - 0.5))
+        #     pg.draw.rect(image, self.selectcolor, ((x, 1), (max(1, w1), max(1, h-2))))
         t0 = -self.viewpos
         for i in xrange(0, i0):
             t0 += self.keyFrames[i].dti
@@ -254,24 +274,17 @@ class ServoBoard(UIBase):
             pg.draw.rect(image, self.POINT_COLOR, rect)
             t += frame.dti
             if x > w: break
-
         self._redrawed = 1
 
     def pos_to_ta(self, pos):
         """
         convert the screen pos to (ti, a) pair
-
         (t - viewpos) * FRAME_WIDTH = x
         """
         x, y = self.get_local_pos_at(pos)
         ti = int(x / self.FRAME_WIDTH + self.viewpos)
         a = self.y_to_a(y)
         return ti, a
-
-    # def on_click(self, event):
-    #     pos = self.get_local_pos_at(event.pos)
-    #     ti, a = self.pos_to_ta(pos)
-    #     self.insert_key_frame(ti, a)
 
     def a_to_y(self, a):
         """(a - min) / (max - min) * height = y"""
@@ -328,23 +341,21 @@ class ServoBoard(UIBase):
                 self.viewpos =  max(0, self._viewpos0 - dx / self.FRAME_WIDTH)
                 x, y = self.parent.viewpos
                 self.parent.viewpos = self.viewpos, y
-
             self.mark_redraw()
 
     def active(self):
         if not self._actived:
             self._actived = True
+            self.selectHinter.show()
             self.labelUI.bgcolor=self.selectcolor
             self.labelUI.mark_redraw()
-            self.mark_redraw()
 
     def deactive(self):
         if self._actived:
             self._actived = False
-            self.selected = None
+            self.selectHinter.hide()
             self.labelUI.bgcolor=self.LABEL_COLOR
             self.labelUI.mark_redraw()
-            self.mark_redraw()
 
     def is_actived(self):
         return self._actived;

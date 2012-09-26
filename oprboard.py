@@ -8,34 +8,36 @@ class OprBoard(UIBase):
         margin = 4
         btnSize=(50, 25)
         # home, play/pause, end, sync
+        # button home
         btn_home = Button(self, caption='<<',
                 pos=(margin , margin), size=(btnSize))
         btn_home.bind_command(self.cb_home)
-
+        btn_home.bind_key(K_6, self.cb_home, KMOD_SHIFT) # key ^
+        # button play
         self.btn_play = btn_play = Button(self, caption='play', 
                 pos=(margin + btnSize[0] + 1, margin), size=(btnSize))
         btn_play.bind_command(self.cb_play)
-
+        # button pause
         self.btn_pause = btn_pause = Button(self, caption='pause', 
                 pos=(margin + btnSize[0] + 1, margin), size=(btnSize))
         btn_pause.hide()
         btn_pause.bind_command(self.cb_pause)
-
-        # bind toggle
         self.bind_key(pg.K_SPACE, self.cb_toggle)
-        
+        # button end
         btn_end = Button(self, caption='>>', 
                 pos=(margin + 2*(btnSize[0] + 1), margin), size=(btnSize))
         btn_end.bind_command(self.cb_end)
-
+        btn_end.bind_key(K_4, self.cb_end, KMOD_SHIFT) # key $
+        # button sync
         self.btn_sync = btn_sync = Button(self, caption='sync', 
                 pos=(margin + 3*(btnSize[0] + 1), margin), size=(btnSize))
         btn_sync.bind_command(self.cb_sync)
-
+        # button unsync
         self.btn_unsync = btn_unsync = Button(self, caption='unsync', 
+                bgcolor=(0x8f, 0, 0, 0xff), hovercolor=(0xff, 0, 0, 0xff),
                 pos=(margin + 3*(btnSize[0] + 1), margin), size=(btnSize))
         btn_unsync.bind_command(self.cb_unsync)
-
+        # the next line
         # angle: [   ]
         label_angle = Label(self, text='angle:',
                 pos=(margin, margin+btnSize[1]), size=btnSize)
@@ -43,7 +45,7 @@ class OprBoard(UIBase):
                 pos=(margin + btnSize[0] + 1, margin+btnSize[1]),
                 size=btnSize)
         self.input_angle.bind_on_confirm(self.cb_angle)
-
+        # other values
         self.servoc = None
 
     def cb_home(self, *args):
@@ -100,11 +102,17 @@ class OprBoard(UIBase):
             warn(str(ex))
             self.input_angle.text = ''
 
-    def cb_sync(self):
-        self.servoc.connect_robot()
+    def cb_sync(self, *args):
+        if self.btn_sync.is_visible():
+            self.btn_sync.hide()
+            self.btn_unsync.show()
+            # self.servoc.connect_robot()
 
     def cb_unsync(self, *args):
-        self.servoc.disconnect_robot()
+        if self.btn_unsync.is_visible():
+            self.btn_unsync.hide()
+            self.btn_sync.show()
+            self.servoc.disconnect_robot()
 
     def update_info(self):
         servoc = self.servoc

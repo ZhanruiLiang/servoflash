@@ -17,6 +17,12 @@ class FPSMeter(Label):
     def update_fps(self, *args):
         self.text = 'FPS:%.1f' % (self.fcnt/self.INTERVAL)
         self.fcnt = 0
+        # print self.text
 
     def count(self):
         self.fcnt += 1
+
+    # def redraw(self, *args):
+    #     super(FPSMeter, self).redraw(*args)
+    #     self._redrawed = 0
+    #     self._needRedraw = 0

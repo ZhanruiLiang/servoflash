@@ -1,6 +1,6 @@
 from ui import UIBase
 from button import Button
-from root import Root
+from root import Root, warn, hint
 from label import Label
 from dragbar import DragBar
 from textbox import TextBox

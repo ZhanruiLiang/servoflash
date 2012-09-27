@@ -1,4 +1,5 @@
 import pygame as pg
+import traceback
 class Timer(object):
     timers = []
     clock = pg.time.Clock()
@@ -9,8 +10,7 @@ class Timer(object):
 
     @staticmethod
     def remove(timer):
-        if timer in Timer.timers:
-            Timer.timers.remove(timer)
+        timer.finish()
 
     @staticmethod
     def update_all():

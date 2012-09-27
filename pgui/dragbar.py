@@ -55,8 +55,11 @@ class DragBar(UIBase):
         self._draging = False
 
     def start_drag(self, event):
-        if not self._draging:
-            self._draging = True
+        if event.type == MOUSEBUTTONDOWN and event.button == BTN_MOUSELEFT:
+            if not self._draging:
+                self._draging = True
+        else:
+            return True
 
     def stop_drag(self, event):
         self._draging = False
@@ -71,6 +74,8 @@ class DragBar(UIBase):
             self._draging = True
             self.drag_to(event)
             self._draging = False
+        else:
+            return True
 
     def drag_to(self, event):
         if self._draging:

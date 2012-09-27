@@ -25,16 +25,16 @@ class MainMenu(pgui.Menu):
         self.add_item('help', self.cb_help)
         self.add_item('quit', self.cb_quit)
 
-        self.bind_key(K_l, self.cb_load, KMOD_CTRL)
-        self.bind_key(K_s, self.cb_save, KMOD_CTRL)
-        self.bind_key(K_s, self.cb_save_as, KMOD_CTRL | KMOD_SHIFT)
+        self.bind_key(K_l, self.cb_load, [KMOD_CTRL])
+        self.bind_key(K_s, self.cb_save, [KMOD_CTRL])
+        self.bind_key(K_s, self.cb_save_as, [KMOD_CTRL, KMOD_SHIFT])
         self.bind_key(K_q, self.cb_quit)
 
     def cb_quit(self, *args):
         pgui.Root.instance.quit()
 
     def cb_save_as(self, *args):
-        prompt = "Save: Type in the file path to save."
+        prompt = "Save as: Type in the file path to save."
         slmgr = self.servoc.slmgr
         pgui.Root.instance.show_dialog(pgui.Dialog(
             prompt, lambda p:slmgr.save(p),
@@ -43,6 +43,7 @@ class MainMenu(pgui.Menu):
 
     def cb_save(self, *args):
         slmgr = self.servoc.slmgr
+        print 'lastSave', slmgr.lastSave
         if slmgr.lastSave is not None:
             slmgr.save(slmgr.lastSave)
         else:

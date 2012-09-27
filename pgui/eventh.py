@@ -18,16 +18,31 @@ class EventHandler:
                  If the handler returns True, then it's considered not executed.
         blockMode: a block mode, all availiable modes are BLK_* in uiconst.py
         """
+        if eventType == EV_CLICK:
+            def handler1(e):
+                if e.type == MOUSEBUTTONDOWN and e.button == BTN_MOUSELEFT:
+                    handler()
+                else:
+                    return True
+        else:
+            handler1 = handler
         if eventType not in self._eventHandlers:
             self._eventHandlers[eventType] = [[] for i in xrange(4)]
-        self._eventHandlers[eventType][blockMode].append(handler)
+        self._eventHandlers[eventType][blockMode].append(handler1)
 
-    def bind_key(self, key, handler, mod=0):
+    def bind_key(self, key, handler, mods=[]):
         def kcallback(event):
             if event.type == KEYDOWN and event.key == key:
-                if mod and (mod & event.mod) or mod == event.mod:
-                    handler(event)
-                    return None
+                # print 'mods', 'emod', '&'.join(bin(mod) for mod in mods), bin(event.mod)
+                if all((mod & event.mod) for mod in mods):
+                    mask = 1
+                    while mask <= event.mod:
+                        if (mask & event.mod) and not any(mask & mod for mod in mods):
+                            break
+                        mask = mask << 1
+                    else:
+                        handler(event)
+                        return None
             return True
         self.bind(EV_KEYPRESS, kcallback, BLK_POST_BLOCK)
         return kcallback

@@ -12,7 +12,7 @@ class OprBoard(UIBase):
         btn_home = Button(self, caption='<<',
                 pos=(margin , margin), size=(btnSize))
         btn_home.bind_command(self.cb_home)
-        btn_home.bind_key(K_6, self.cb_home, KMOD_SHIFT) # key ^
+        btn_home.bind_key(K_6, self.cb_home, [KMOD_SHIFT]) # key ^
         # button play
         self.btn_play = btn_play = Button(self, caption='play', 
                 pos=(margin + btnSize[0] + 1, margin), size=(btnSize))
@@ -27,16 +27,18 @@ class OprBoard(UIBase):
         btn_end = Button(self, caption='>>', 
                 pos=(margin + 2*(btnSize[0] + 1), margin), size=(btnSize))
         btn_end.bind_command(self.cb_end)
-        btn_end.bind_key(K_4, self.cb_end, KMOD_SHIFT) # key $
+        btn_end.bind_key(K_4, self.cb_end, [KMOD_SHIFT]) # key $
         # button sync
         self.btn_sync = btn_sync = Button(self, caption='sync', 
                 pos=(margin + 3*(btnSize[0] + 1), margin), size=(btnSize))
         btn_sync.bind_command(self.cb_sync)
+        btn_sync.bind_key(K_o, self.cb_sync)
         # button unsync
         self.btn_unsync = btn_unsync = Button(self, caption='unsync', 
                 bgcolor=(0x8f, 0, 0, 0xff), hovercolor=(0xff, 0, 0, 0xff),
                 pos=(margin + 3*(btnSize[0] + 1), margin), size=(btnSize))
         btn_unsync.bind_command(self.cb_unsync)
+        btn_unsync.bind_key(K_o, self.cb_unsync, [KMOD_SHIFT])
         # the next line
         # angle: [   ]
         label_angle = Label(self, text='angle:',
@@ -52,7 +54,9 @@ class OprBoard(UIBase):
         self.servoc.goto_frame(0)
 
     def cb_end(self, *args):
-        self.servoc.goto_frame(-1)
+        servoc = self.servoc
+        servo = servoc.servos[servoc.actived]
+        servoc.goto_frame(servo.total_frame())
 
     def cb_play(self, *args):
         if self.btn_play.is_visible():
@@ -106,7 +110,7 @@ class OprBoard(UIBase):
         if self.btn_sync.is_visible():
             self.btn_sync.hide()
             self.btn_unsync.show()
-            # self.servoc.connect_robot()
+            self.servoc.connect_robot()
 
     def cb_unsync(self, *args):
         if self.btn_unsync.is_visible():

@@ -5,6 +5,10 @@ from label import Label
 from timer import Timer
 from animate import ColorAnimate
 from root import warn, hint
+try:
+    from .. import config
+except:
+    import uiconsts as config
 import string
 
 class InputBox(UIBase, Focusable):
@@ -53,6 +57,7 @@ class InputBox(UIBase, Focusable):
     def on_lost_focus(self):
         self._editing = False
         self.blinker = ColorAnimate(self.blinker.get(), self.bgcolor)
+        # self.on_confirm()
 
     def on_confirm(self):
         for cb in self.confirmCallBacks:
@@ -83,7 +88,8 @@ class InputBox(UIBase, Focusable):
             self.copy_to_X()
         elif event.key == K_RETURN:
             self.on_confirm()
-            focus.set_focus(focus.next_focus())
+            if config.SWITCH_ON_CONFIRM:
+                focus.set_focus(focus.next_focus())
         elif event.unicode in self.chars:
             self.text = self.text + str(event.unicode)
             self.on_change()

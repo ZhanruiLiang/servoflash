@@ -3,10 +3,12 @@ from pgui import Label, InputBox, Root, warn, hint, DragBar, Timer
 from servoproxy import InvalidCommandError, CommandProxy
 from saveload import SaveLoadManager
 from servoboard import ServoBoard, KeyFrame
+import socket
 import string
 import random
 import os
 import math
+from config import *
 
 def raise_(ex): raise ex
 
@@ -27,16 +29,18 @@ class ServoControl(UIBase):
             lambda s: s if not any(c for c in s if c not in string.letters + string.digits) else raise_(ValueError("invalid")),
             lambda s: int(s) if 0 <= int(s) <= 1023 else raise_(ValueError("out of range[0, 1024)")),
             lambda s: int(s) if int(s) in (-1, 1) else raise_(ValueError("direction must be 1 or -1")),
-            lambda s: int(s) if 0 <= int(s) <= 1023 else raise_(ValueError("out of range[0, 1024)")),
-            lambda s: int(s) if 0 <= int(s) <= 1023 else raise_(ValueError("out of range[0, 1024)")),
+            lambda s: int(s) if -1024 <= int(s) <= 1023 else raise_(ValueError("out of range[-1024, 1024)")),
+            lambda s: int(s) if -1024 <= int(s) <= 1023 else raise_(ValueError("out of range[-1024, 1024)")),
             ]
+    BG_IMAGE_PATH = 'shot-2012-09-27-cut.png'
 
     RULER_HEIGHT = 14
     FRAME_WIDTH = ServoBoard.FRAME_WIDTH
-    BAR_WIDTH = 20
+    BAR_WIDTH = 14
     MARGIN = 3
 
     def init(self):
+        self.bgImage = pg.image.load(self.BG_IMAGE_PATH).convert()
         self.servos = [ServoBoard(self)]
         self.slmgr = SaveLoadManager(self)
         self.ruler = Ruler(self, pos=(self.MARGIN, 0), 
@@ -51,13 +55,24 @@ class ServoControl(UIBase):
                 pos=(self.MARGIN, self.size[1] - self.BAR_WIDTH),
                 blockwidth=40,
                 )
+        self.vbar = DragBar(self,
+                value=0,
+                minvalue=0,
+                maxvalue=1,
+                size=(self.BAR_WIDTH, self.size[1] - self.RULER_HEIGHT),
+                pos=(self.size[0] - self.BAR_WIDTH, self.RULER_HEIGHT),
+                vertical=True,
+                blockwidth=40,
+                )
+        self.playPosHinter = UIBase(self, pos=(0, 0), size=(5, self.size[1]), 
+                bgcolor=(0xff, 0x0f, 0, 0x25))
         self.actived = 0
         self._playing = False
         self._synced = False
         self.playPos = 0
-        self.timeStep = 0.1
+        self.timeStep = INIT_TIME_STEP
         self.playFPS = 1./self.timeStep
-
+        self.proxy = None
         self.animateTm = None
         self.set_play_FPS(self.playFPS)
         def hbarCallBack():
@@ -67,7 +82,12 @@ class ServoControl(UIBase):
             x2 = self.get_current_frame()
             if x2 < x1:
                 self.goto_frame(x1)
+        def vbarCallBack():
+            x, y = self.viewpos
+            y1 = self.vbar.value
+            self.viewpos = x, y1
         self.hbar.bind_on_change(hbarCallBack)
+        self.vbar.bind_on_change(vbarCallBack)
         self.bind(EV_CLICK, self.on_click)
         self.bind_keys()
 
@@ -82,12 +102,15 @@ class ServoControl(UIBase):
 
     def bind_keys(self):
         self.bind_key(K_i, self.insert_key_frame)
-        self.bind_key(K_i, self.insert_frame, KMOD_SHIFT)
+        self.bind_key(K_i, self.insert_frame, [KMOD_SHIFT])
         self.bind_key(K_d, self.remove_frame)
+        self.bind_key(K_d, 
+                lambda e: self.remove_servo(self.servos[self.actived]),
+                [KMOD_CTRL, KMOD_ALT])
         # move view left
-        self.bind_key(K_h, lambda e: self.move_view(-1), KMOD_SHIFT)
+        self.bind_key(K_h, lambda e: self.move_view(-1), [KMOD_SHIFT])
         # move view right
-        self.bind_key(K_l, lambda e: self.move_view(1), KMOD_SHIFT)
+        self.bind_key(K_l, lambda e: self.move_view(1), [KMOD_SHIFT])
         # select previous frame
         self.bind_key(K_h, lambda e: self.move_frame(-1))
         # select next frame
@@ -97,19 +120,19 @@ class ServoControl(UIBase):
         # select previous key frame
         self.bind_key(K_b, lambda e: self.prev_key_frame())
         # adjust
-        adjSpeed = 5
+        adjSpeed = 20
         self.bind_key(K_j, 
                 lambda e: self.servos[self.actived].adjust_curframe(1),
-                KMOD_ALT)
+                [KMOD_ALT])
         self.bind_key(K_j, 
                 (lambda e: self.servos[self.actived].adjust_curframe(adjSpeed)),
-                KMOD_SHIFT)
+                [KMOD_SHIFT])
         self.bind_key(K_k, 
                 lambda e: self.servos[self.actived].adjust_curframe(-1),
-                KMOD_ALT)
+                [KMOD_ALT])
         self.bind_key(K_k, 
                 lambda e: self.servos[self.actived].adjust_curframe(-adjSpeed),
-                KMOD_SHIFT)
+                [KMOD_SHIFT])
         # select next servo
         self.bind_key(K_j, lambda e: self.select_servo(self.actived + 1))
         # select previous servo
@@ -144,16 +167,27 @@ class ServoControl(UIBase):
         self.timeStep = 1. / fps
 
     def set_servo(self):
+        if not self._synced: return
         proxy = self.proxy
-        for servo in self.servos:
-            angle = servo.get_a_at(self.playPos)
-            speed = 512
-            if servo.is_safe_angle(angle):
-                adv = servo.angle2ad(angle)
-                proxy.set_servo_pos(self.id, adv, speed)
-            else:
-                interval = self.min, self.max
-                warn('%(angle)d out of range, need to be in %(interval)s, in %(self)s' % locals())
+        if proxy:
+            try:
+                for servo in self.servos:
+                    angle = servo.get_a_at(self.playPos)
+                    speed = 180
+                    if servo.is_safe_angle(angle):
+                        adv = servo.angle2ad(angle)
+                        proxy.setPos(servo.sid, adv, speed)
+                    else:
+                        interval = servo.min, servo.max
+                        warn('%(angle)d out of range, need to be in %(interval)s, in %(self)s' % locals())
+                proxy.action()
+            except socket.error as ex:
+                self.disconnect_robot()
+                warn('connection lost:'+str(ex))
+            except Exception as ex:
+                warn(str(ex))
+        else:
+            warn("not connected.")
 
     def animate(self, dt):
         if not self._playing: return
@@ -190,7 +224,11 @@ class ServoControl(UIBase):
                 self.proxy = None
             else:
                 hint('proxy connected')
-                self._synced = True
+        if self.proxy is not None:
+            for servo in self.servos:
+                self.proxy.setMode(servo.sid, 0)
+            self.set_servo()
+            self._synced = True
 
     def disconnect_robot(self):
         self._synced = False
@@ -199,16 +237,34 @@ class ServoControl(UIBase):
     def viewpos(self):
         return self._viewpos
 
+    @property
+    def selected(self):
+        return self.servos[self.actived].selected
+
+    @property
+    def playPos(self):
+        return self._playPos
+
+    @playPos.setter
+    def playPos(self, p):
+        self._playPos = p
+        self.playPosHinter.pos = V2I(((p + 0.5 - self.viewpos[0]) * self.FRAME_WIDTH - 3, 0))
+
     @viewpos.setter
     def viewpos(self, v):
-        self._viewpos = v
         x, y = v
         if hasattr(self, 'servos'): 
+            x0, y0 = self._viewpos
+            y1 = self.RULER_HEIGHT + self.MARGIN
             for servo in self.servos:
                 if servo.viewpos != x:
                     servo.viewpos = x
                     servo.mark_redraw()
+                servo.pos = (servo.pos[0], servo.pos[1] + y0 - y)
             self.ruler.mark_redraw()
+            if y0 != y:
+                self.mark_redraw()
+        self._viewpos = v
 
     def move_view(self, d):
         x, y = self.viewpos
@@ -218,8 +274,11 @@ class ServoControl(UIBase):
         self.update_bar()
 
     def update_bar(self):
-        self.hbar.maxvalue = max(s.total_frame() for s in self.servos)
+        servos = self.servos
+        self.hbar.maxvalue = max(s.total_frame() for s in servos)
         self.hbar.value = self.viewpos[0]
+        self.vbar.maxvalue = len(servos) * (servos[0].size[1] + self.MARGIN)
+        self.vbar.value = self.viewpos[1]
 
     def insert_key_frame(self, event):
         servo = self.servos[self.actived]
@@ -245,19 +304,26 @@ class ServoControl(UIBase):
             self.servos[self.actived].deactive()
             self.actived = idx
             self.mark_redraw()
-        self.servos[idx].active()
-        self.on_select_servo(self.servos[idx])
-        hint('switch to servo#%d' % self.servos[idx].sid)
+        servo = self.servos[idx]
+        y1 = servo.pos[1]
+        x, y = self.viewpos
+        if y1 < 0:
+            self.viewpos = x, y + servo.pos[1]
+        elif y1 + servo.size[1] > self.size[1]:
+            self.viewpos = x, y + y1 + servo.size[1] - self.size[1]
+        servo.active()
+        self.on_select_servo(servo)
+        hint('switch to %s' % servo.label)
 
-    def new_servos(self, n=5):
+    def new_servos(self, n=6):
         self.remove_servo()
         for i in xrange(n):
             self.add_servo()
-            servo = self.servos[-1]
-            self.servos[-1].keyFrames = ([KeyFrame(5, 0)] + [
-                KeyFrame(random.randint(1, 10), 
-                    random.randint(servo.min, servo.max)) 
-                for i in xrange(500)])
+            # servo = self.servos[-1]
+            # self.servos[-1].keyFrames = ([KeyFrame(5, 0)] + [
+            #     KeyFrame(random.randint(1, 10), 
+            #         random.randint(servo.min, servo.max)) 
+            #     for i in xrange(500)])
         self.actived = 0
         self.servos[0].active()
         self.reset()
@@ -270,9 +336,15 @@ class ServoControl(UIBase):
                 servo.destory()
             self.servos = []
         else:
+            cnt = len(self.servos)
             for servo in args:
-                servo.destory()
+                if cnt > 1 and servo in self.servos:
+                    cnt -= 1
+                    servo.destory()
             self.servos = [s for s in self.servos if not s._destoryed]
+            if self.actived >= len(self.servos):
+                self.actived = len(self.servos) - 1
+            self.select_servo(self.actived)
         self.mark_redraw()
 
     def get_current_frame(self):
@@ -284,7 +356,7 @@ class ServoControl(UIBase):
     def goto_frame(self, ti):
         servo = self.servos[self.actived]
         if ti < 0:
-            ti += servo.total_frame()
+            ti = 0
         if ti < self.viewpos[0]:
             x, y = self.viewpos
             self.viewpos = ti, y
@@ -293,40 +365,62 @@ class ServoControl(UIBase):
             tw = self.size[0]/self.FRAME_WIDTH
             if ti >= self.viewpos[0] + tw:
                 self.viewpos = ti - tw + 1, y
-
         servo.select(ti)
         if not self._playing:
             self.on_select(servo)
             self.playPos = ti
             self.ruler.mark_redraw()
+        if self._synced:
+            self.set_servo()
 
     def add_servo(self, servo=None):
         if servo is None:
             servo = ServoBoard(self)
         self.servos.append(servo)
         servo.viewpos = self.viewpos[0]
+        ssize = self._cal_servo_size()
+        for idx, servo in enumerate(self.servos):
+            servo.resize(ssize)
+            servo.pos = self._cal_servo_pos(idx)
         self.update_bar()
         self.mark_redraw()
 
-    def redraw(self, *args):
-        print 'redraw main board'
-        self._redrawed = 1
+    def _cal_servo_pos(self, idx):
         bw = self.MARGIN
         w0, h0 = self.size
         w = w0 - 2 * bw
         h = (h0 - bw - self.RULER_HEIGHT) / max(1, len(self.servos)) - bw
         h = max(ServoBoard.MIN_HEIGHT, h)
-        x, y = bw, self.RULER_HEIGHT + bw - self.viewpos[1]
+        # (w, h) is the size of a single servo board
+        return bw, self.RULER_HEIGHT + bw + idx * (bw + h)
+
+    def _cal_servo_size(self):
+        bw = self.MARGIN
+        w0, h0 = self.size
+        w = w0 - 2 * bw
+        h = (h0 - bw - self.RULER_HEIGHT) / max(1, len(self.servos)) - bw
+        h = max(ServoBoard.MIN_HEIGHT, h)
+        return w, h
+
+    def resize(self, nsize):
+        super(ServoControl, self).resize(nsize)
+        if hasattr(self, 'servos'):
+            ssize = self._cal_servo_size()
+            for servo in self.servos:
+                servo.resize(ssize)
+
+    def redraw(self, *args):
+        # print 'redraw main board'
+        self._redrawed = 1
+        bw = self.MARGIN
         image = self.ownImage
         image.fill(self.bgcolor)
+        image.blit(self.bgImage, (0, 0))
         for servo in self.servos:
-            if servo.size != (w, h):
-                servo.resize((w, h))
-            if servo.pos != (x, y):
-                servo.pos = x, y
             if servo.is_actived():
-                pg.draw.rect(image, self.color, pg.Rect((0, y-bw), (w0, h+2*bw)))
-            y += h + bw
+                pg.draw.rect(image, self.color, 
+                        ((0, servo.pos[1]-bw), (servo.size[0] + 2*bw, servo.size[1]+2*bw)))
+                break
 
     def on_click(self, event):
         pos = event.pos
@@ -335,6 +429,19 @@ class ServoControl(UIBase):
                 self.select_servo(servo)
                 return
         return True
+
+    def auto_save(self):
+        self.slmgr.save(AUTOSAVE_FILE, False)
+
+    def debug_print(self):
+        print 'servos:'
+        print '\n'.join('%d(t):' % i + str(s) for i, s in enumerate(self.servos))
+        print '\n'.join("%s: %s" % x for x in [
+            ('actived', self.actived),
+            ('_playing', self._playing),
+            ('playPos', self.playPos),
+            ('selected', self.selected),
+            ])
 
 class RulerHead(UIBase):
     def redraw(self, *args):

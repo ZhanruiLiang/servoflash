@@ -18,20 +18,30 @@ Keys:
     - I: insert normal frame
     - d: delete selected frame
 
+    - Ctrl-Alt-d: delete servo
+
     - Ctrl-s: save
     - Ctrl-Shift-s(Ctrl-S): save as
     - Ctrl-l: load
 
     - SPACE: toggle play/pause
 
+    - o: sync
+    - O: unsync
+
     - ESC: cancel focus
+
+Mouse:
+    - hold left button can drag a point
+    - hold left button can drag a board
+    - can scroll on a scrollbar
 
 TODO:
     - make a cmd system
     - add playing speed controlling
     - speedup board scrolling
     - name the document suffix
-    - re-design a clean look of the main controll boardo
+    - re-design a clean look of the main controll board
 
 Author:
     Ray, ray040123@gmail.com

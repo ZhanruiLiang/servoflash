@@ -35,7 +35,7 @@ class SaveLoadManager:
         except Exception as ex:
             raise SaveLoadError(ex)
 
-    def save(self, filename):
+    def save(self, filename, remember=True):
         servoc = self.servoc
         try:
             if os.path.exists(filename):
@@ -47,8 +47,9 @@ class SaveLoadManager:
             data = self.gen_save_data()
             with open(filename, 'wb') as f:
                 cPickle.dump(data, f, -1)
-                self.lastSave = filename
-                self.lastSaveData = data
+                if remember:
+                    self.lastSave = filename
+                    self.lastSaveData = data
         except Exception as ex:
             raise SaveLoadError(ex)
         hint('save data to file "%s"' % filename)
@@ -78,3 +79,12 @@ class SaveLoadManager:
             adata['keyFrames'] = [(kf.a, kf.dti) for kf in servo.keyFrames]
             servosData.append(adata)
         return data
+
+    def load_last(self):
+        #DUMMY
+        self.load('save4')
+
+    def make_home_config(self):
+        os.system('mkdir -p ~/.servoc')
+        top = os.path.expanduser('~/.servoc')
+        # TODO

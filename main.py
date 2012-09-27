@@ -7,9 +7,10 @@ from mainmenu import MainMenu
 from config import *
 from oprboard import OprBoard
 from attrboard import AttrBoard
+from pgui import Timer
 
 root = pgui.Root(bgcolor=(0x3e, 0x3e, 0x3e, 0xff), 
-        size=(pgui.SCREEN_W, pgui.SCREEN_H))
+        size=(SCREEN_W, SCREEN_H))
 
 def on_loop():
     fpsmeter.count()
@@ -23,9 +24,22 @@ def on_loop():
     # servo.select(ti)
     # self.on_select(servo)
     # servo.mark_redraw()
+def on_quit():
+    # mmenu.prompt_unsaved()
+    controller.auto_save()
+def print_info(*args):
+    controller.debug_print()
+    print 'Timers:', len(Timer.timers)
+
+Timer.add(Timer(AUTOSAVE_INTERVAL, lambda *args: controller.auto_save()))
+
+
 root.on_loop = on_loop
+root.on_quit = on_quit
+root.bind_key(pg.K_p, print_info, [pg.KMOD_CTRL])
 # set up the fps meter
-fpsmeter = pgui.FPSMeter(root, level=2000, pos=(700, 600))
+fpsmeter = pgui.FPSMeter(root, level=2000)
+fpsmeter.pos = (800, 690)
 
 # set up the controller
 controller = servo.ServoControl(root, 
@@ -55,7 +69,8 @@ controller.on_select= on_select
 mmenu = MainMenu(root, controller, level=200, pos=(1, 0))
 
 # start mainloop 
-controller.new_servos()
+# controller.new_servos()
+controller.slmgr.load_last()
 root.show_hint('startup time: %.2f sec' % (time.clock()))
 
 # root.bind_key(pg.K_t, lambda e:controller.slmgr.load('save3'))

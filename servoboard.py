@@ -16,14 +16,14 @@ class ServoBoard(UIBase):
     POINT_COLOR = (0xff, 0, 0xff, 0xff)
     RULER_COLOR = (230, 230, 230, 255)
     LABEL_COLOR = (170, 170, 170, 120)
-    FRAME_WIDTH = 6
-    MIN_HEIGHT = 40
+    FRAME_WIDTH = 9
+    MIN_HEIGHT = 100
     AllArgs = update_join(UIBase.AllArgs, 
             selectcolor='(0, 160, 245, 85)',
             bgcolor='(255, 255, 255, 255)',
             sid='0', # servo id
             label='"servo"',
-            bias='0', # servo bias, such that: bias + direction * angle * (1024/360) = actualADValue
+            bias='0', # servo bias, such that: bias + direction * angle = actualADValue
             direction='1', 
             viewpos='0', # time index
             min='0', # angle min
@@ -36,7 +36,16 @@ class ServoBoard(UIBase):
     assert sorted(AllArgs.keys()) == sorted(ArgsOrd)
 
     def __repr__(self):
-        return 'servo#%d' % self.sid
+        r = '\n'.join("  %s: %s" % x for x in [
+            ('sid', self.sid),
+            ('label', self.label),
+            ('bias', self.bias),
+            ('viewpos', self.viewpos),
+            ('selected', self.selected),
+            ('len(keyFrames)', len(self.keyFrames)),
+            ('keyFrames', '\n' + '\n'.join("    %s" % f for f in self.keyFrames)),
+            ])
+        return r
 
     def init(self):
         # abou keyFrame reprecentation
@@ -63,7 +72,8 @@ class ServoBoard(UIBase):
         # setup the label
         self.labelUI = Label(self, text='%s(%d)' % (self.label, self.sid), 
                 bgcolor=self.LABEL_COLOR, color=(0, 0, 0, 255),
-                pos=(0, 0), size=(80, 20))
+                align=Label.ALIGN_LEFT,
+                pos=(self.size[0] - 120, 0), size=(120, 20))
         # bind events
         self.bind(EV_MOUSEDOWN, self.start_drag)
         self.bind(EV_MOUSEUP, self.end_drag)
@@ -75,6 +85,7 @@ class ServoBoard(UIBase):
         super(ServoBoard, self).resize(nsize)
         if hasattr(self, 'selectHinter'):
             self.selectHinter.resize((self.FRAME_WIDTH, self.size[1]))
+            self.labelUI.pos=(self.size[0] - self.labelUI.size[0], 0)
 
     @property
     def sid(self):
@@ -96,10 +107,10 @@ class ServoBoard(UIBase):
             self.labelUI.text = '%s(%d)' % (self._label, self._sid)
 
     def angle2ad(self, angle):
-        return int(self.bias + self.direction * angle * 1024 / 300)
+        return int(self.bias + self.direction * angle)
 
     def ad2angle(self, ad):
-        return (ad - self.bias)/self.direction * 300 / 1024
+        return (ad - self.bias)/self.direction
 
     def is_safe_angle(self, angle):
         return self.min <= angle <= self.max
@@ -112,7 +123,7 @@ class ServoBoard(UIBase):
         if i + 1 < len(self.keyFrames):
             f1 = self.keyFrames[i]
             f2 = self.keyFrames[i+1]
-            return int(f1.a + (f2.a - f1.a) / f1.dti * dti)
+            return int(f1.a + (f2.a - f1.a) * dti / f1.dti)
         else:
             return self.keyFrames[-1].a
 
@@ -126,13 +137,15 @@ class ServoBoard(UIBase):
         self.selected = ti
         x = int(self.FRAME_WIDTH * (self.selected - self.viewpos - 0.5))
         self.selectHinter.pos = (x, 0)
-        hint('frame %d(a=%d, t=%.3fs)' %(ti, self.get_a_at(ti), ti * self.parent.timeStep))
+        a = self.get_a_at(ti)
+        hint('frame %d(a=%d, adv=%d, t=%.3fs)' %(
+            ti, a, self.angle2ad(a), ti * self.parent.timeStep))
 
     def on_click(self, event):
-        if self._actived:
+        if event.button == BTN_MOUSELEFT and self._actived:
             pos = event.pos
             self.select_at_pos(pos)
-            if event.mod & KMOD_ALT:
+            if hasattr(event, 'mod') and event.mod & KMOD_ALT:
                 ti, a = self.pos_to_ta(event.pos)
                 self.insert_key_frame(ti, a)
         else:
@@ -195,6 +208,7 @@ class ServoBoard(UIBase):
                 if self.min <= a <= self.max:
                     self.keyFrames[i].a += da
                     self.select(self.selected)
+                    self.parent.set_servo()
                     self.mark_redraw()
                 else:
                     warn("angle=%d out of range(%s)" %(a, (self.min, self.max)))
@@ -206,6 +220,7 @@ class ServoBoard(UIBase):
                 if self.min <= a <= self.max:
                     self.keyFrames[i].a = a
                     self.select(self.selected)
+                    self.parent.set_servo()
                     self.mark_redraw()
                 else:
                     warn("angle=%d out of range(%s)" %(a, (self.min, self.max)))
@@ -232,16 +247,11 @@ class ServoBoard(UIBase):
         i0, dti0 = self.find_ti_pos(self.viewpos)
         w, h = self.size
         w1 = self.FRAME_WIDTH
-
         # draw the ruler
         x0 = (5 - self.viewpos) % 5 * w1
         for x in xrange(x0, w, 5 * w1):
             pg.draw.rect(image, self.RULER_COLOR, ((x - w1/2 + 1, 1), (w1-1, h-2)))
 
-        # if self._actived and self.selected is not None:
-        #     # draw selected
-        #     x = int(w1 * (self.selected - self.viewpos - 0.5))
-        #     pg.draw.rect(image, self.selectcolor, ((x, 1), (max(1, w1), max(1, h-2))))
         t0 = -self.viewpos
         for i in xrange(0, i0):
             t0 += self.keyFrames[i].dti
@@ -257,12 +267,16 @@ class ServoBoard(UIBase):
             cur = (x, y)
             if prev is not None:
                 # draw line, link the prev point with current point
-                pg.draw.line(image, self.color, prev, cur, 2)
+                pg.draw.line(image, self.color, prev, cur, 1)
             # draw the vertical dark line
             pg.draw.line(image, self.DARK_COLOR, (x, 0), (x, y), 1)
             t += frame.dti
             prev = cur
             if x > w: break
+        if prev is not None:
+            # draw line, link the prev point with current point
+            cur = t * w1, y
+            pg.draw.line(image, self.color, prev, cur, 1)
         # draw dots
         t = t0
         for i in xrange(i0, n):

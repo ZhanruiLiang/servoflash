@@ -53,7 +53,7 @@ class Root(UIBase):
 
     def resize(self, size):
         self.size = size
-        # self.image = pg.display.set_mode(self.size, VFLAG, 32)
+        self.image = pg.display.set_mode(self.size, VFLAG, 32)
         self.image=  pg.display.get_surface()
         self.rect = pg.Rect(self.pos, size)
         # self.ownImage = self.image.copy()
@@ -107,7 +107,7 @@ class Root(UIBase):
                 self.quit()
                 return
             elif e.type == pg.VIDEORESIZE:
-                pg.display.set_mode(e.size, VFLAG)
+                # pg.display.set_mode(e.size, VFLAG)
                 self.resize(e.size)
                 print 'main window resized'
                 self.mark_redraw()
@@ -176,21 +176,29 @@ class Root(UIBase):
     def mainloop(self):
         self._quit = False
         tm = pg.time.Clock()
-        while not self._quit:
-            self.handle_event()
-            #update timers
-            Timer.update_all()
-            self.on_loop()
-            # update graphic
-            rect = self.update()
-            # if rect: 
-            #     pg.display.update(rect)
-            pg.display.flip()
-            # delay
-            tm.tick(FPS)
+        try:
+            while not self._quit:
+                self.handle_event()
+                #update timers
+                Timer.update_all()
+                self.on_loop()
+                # update graphic
+                rect = self.update()
+                # if rect: 
+                #     pg.display.update(rect)
+                pg.display.flip()
+                # delay
+                tm.tick(FPS)
+        except Exception as ex:
+            import traceback; traceback.print_exc()
+            self.on_quit()
+
+    def on_quit(self):
+        pass
 
     def quit(self, *args):
         print 'quit'
+        self.on_quit()
         self._quit = True
 
 def warn(msg):

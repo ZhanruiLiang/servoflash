@@ -48,6 +48,7 @@ class Dialog(UIBase):
     def confirm(self, event):
         self.callbackOnConfrim(self.input.text)
         self.parent.hide_dialog()
+        focus.set_focus(None)
 
     def cancel(self, event):
         print 'cancel'

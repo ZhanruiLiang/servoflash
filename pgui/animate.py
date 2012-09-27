@@ -6,7 +6,7 @@ class Animate:
         self.v = v1
         self.v1 = v2
         self._end = False
-        self.timer = Timer.add(Timer(1./FPS, self.step))
+        self.timer = Timer.add(Timer(1./FPS, self.step, 1000))
 
     def step(self, dt):
         pass
@@ -21,14 +21,17 @@ class Animate:
         if not self._end:
             self._end = True
             self.v = self.v1
-            Timer.remove(self.timer)
+            self.timer.finish()
 
 class ColorAnimate(Animate):
     def step(self, dt):
+        if self.is_end(): return
         if not color_eq(self.v, self.v1):
             self.v = step_color(self.v, self.v1)
         else:
             self.finish()
+    def __repr__(self):
+        return 'ColorAnimate(cur=%s, to=%s)' % (self.v, self.v1)
 
 def step_value(v, v1, k=0.3):
     return v + (v1 - v) * k

@@ -3,4 +3,14 @@
 vec2d.py
 PygameReadWrite/
 *.pyc
+..autosave*
+.save*
+out
+.errors
+pgui/init.yaml
+tags
+pgui/win.png
+pgui/win.xcf
+*.xcf
+xx
 

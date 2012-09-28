@@ -6,6 +6,9 @@ Keys:
     - w: next key frame
     - b: prev key frame
 
+    - [: toggle loop start mark
+    - ]: toggle loop end mark
+
     - j: next servo
     - k: previous servo
 
@@ -31,17 +34,20 @@ Keys:
 
     - ESC: cancel focus
 
+    - Ctrl-p: debug print
+
 Mouse:
     - hold left button can drag a point
     - hold left button can drag a board
     - can scroll on a scrollbar
 
-TODO:
+TODO: o: finished; -: not finished; x: mayve will not do it.
+    o add looping function
     - make a cmd system
-    - add playing speed controlling
-    - speedup board scrolling
+    x add playing speed controlling
+    x speedup board scrolling
     - name the document suffix
-    - re-design a clean look of the main controll board
+    x re-design a clean look of the main controll board
 
 Author:
     Ray, ray040123@gmail.com

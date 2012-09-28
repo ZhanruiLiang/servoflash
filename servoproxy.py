@@ -20,6 +20,7 @@ class CommandProxy(object):
             'setMode',
             'setRotaSpeed',
             'setPos',
+            'setPosTime',
             'getPos',
             'action',
             ]

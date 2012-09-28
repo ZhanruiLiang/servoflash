@@ -32,12 +32,11 @@ class Root(UIBase):
         self._timers = []
         self._dialogQueue = []
         self.dialog = None
-        self.hinter = hint.PopupHinter(self, pos=(0, self.size[1]), level=self.TOP_LEVEL)
+        self.hinter = hint.PopupHinter(self, pos=(0, self.size[1]), 
+                level=self.TOP_LEVEL)
         self.warner= hint.PopupHinter(self, level=self.TOP_LEVEL,
                 pos=(500, self.size[1]), 
                 bgcolor=(0xff, 0x4f, 0x4c, 0xff))
-
-        # self.bind_key(K_q, self.quit)
 
     def tab_focus(self, event):
         if event.mod & KMOD_SHIFT:
@@ -132,11 +131,9 @@ class Root(UIBase):
         pass
 
     def show_hint(self, hint):
-        print '[HINT]:',hint
         self.hinter.show_hint(hint)
 
     def show_warn(self, msg):
-        print '[WARN!]:', msg
         self.warner.show_hint(msg)
 
     DIALOG_LEVEL = TOP_LEVEL
@@ -202,7 +199,9 @@ class Root(UIBase):
         self._quit = True
 
 def warn(msg):
+    # print '[WARN!]:', msg
     Root.instance.show_warn(msg)
 
 def hint(msg):
+    # print '[HINT]:', msg
     Root.instance.show_hint(msg)

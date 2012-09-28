@@ -19,6 +19,7 @@ class OprBoard(UIBase):
         btn_play.bind_command(self.cb_play)
         # button pause
         self.btn_pause = btn_pause = Button(self, caption='pause', 
+                bgcolor=(0x8f, 0, 0, 0xff), hovercolor=(0xff, 0, 0, 0xff),
                 pos=(margin + btnSize[0] + 1, margin), size=(btnSize))
         btn_pause.hide()
         btn_pause.bind_command(self.cb_pause)

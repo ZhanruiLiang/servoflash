@@ -21,26 +21,35 @@ class RulerHead(UIBase):
         self._redrawed = 1
 
 class Ruler(UIBase):
-    fontr = pg.font.Font(os.path.join(RES_DIR, 'MonospaceTypewriter.ttf'), 10)
+    fontr = pg.font.Font(os.path.join(RES_DIR, 'MonospaceTypewriter.ttf'), 12)
+    COLOR_PLAYING = (0x9b, 0, 0x9e, 0xff)
+    COLOR_MARK = (0x0, 0x88, 0x88, 0x3f)
     def init(self):
         self.servoc = self.parent
-        self.head = RulerHead(self, color=(0xff, 0, 0, 0x88),
+        self.head = RulerHead(self, color=(0xff, 0, 0, 0xff),
                 pos=(-20, 0), size=(8, self.size[1]))
-        self._drawnViewpos = None
+        self._drawnState = None
 
     def redraw(self, *args):
         servoc = self.servoc
+        image = self.ownImage
+        self._redrawed = 1
         w0 = servoc.FRAME_WIDTH
         viewpos = servoc.viewpos[0]
-        if viewpos != self._drawnViewpos:
-            image = self.ownImage
+        # move the playing head
+        self.head.pos = ((servoc.playPos - viewpos) * w0 - w0/2, 0)
+        state = (viewpos, servoc.is_playing(), servoc.loopStart, servoc.loopEnd)
+        if state != self._drawnState:
             fps = servoc.playFPS
             w, h = self.size
             # start draw from time t0, mark at every second
             t0 = viewpos - (viewpos - 1) % fps + fps - 1
             x = 0
             t = t0
-            image.fill(self.bgcolor)
+            if servoc.is_playing():
+                image.fill(self.COLOR_PLAYING)
+            else:
+                image.fill(self.bgcolor)
             while x < w:
                 x = (t - viewpos) * w0
                 # draw vertical ruler
@@ -48,10 +57,16 @@ class Ruler(UIBase):
                 # draw the time flag
                 image.blit(self.fontr.render('%d' % (t * servoc.timeStep), 1, self.color), (x + 1, 0))
                 t += fps
-            self._drawnViewpos = viewpos
-        # draw the playing head
-        self.head.pos = ((servoc.playPos - viewpos) * w0 - w0/2, 0)
-        self._redrawed = 1
+            # draw loop start mark
+            if servoc.loopStart is not None:
+                image.blit(self.fontr.render("|>", 1, self.color, self.COLOR_MARK), 
+                        ((servoc.loopStart - viewpos)*w0 - 4, 0))
+            # draw loop end mark
+            if servoc.loopEnd is not None:
+                image.blit(self.fontr.render("<|", 1, self.color, self.COLOR_MARK), 
+                        ((servoc.loopEnd - viewpos)*w0 - 9, 0))
+
+            self._drawnState = state
 
 class ServoControl(UIBase):
     AllArgs = update_join(UIBase.AllArgs, 
@@ -80,14 +95,19 @@ class ServoControl(UIBase):
     BAR_WIDTH = 14
     MARGIN = 3
 
+    loopStart = 0
+    loopEnd = None
     def init(self):
         self.bgImage = pg.image.load(self.BG_IMAGE_PATH).convert()
         self.servos = [ServoBoard(self)]
+        # save/load manager
         self.slmgr = SaveLoadManager(self)
+        # ruler, the upper line showing time steps, etc.
         self.ruler = Ruler(self, pos=(self.MARGIN, 0), 
                 size=(self.size[0]-2*self.MARGIN, self.RULER_HEIGHT),
                 color=(0, 0, 0, 0xff),
                 bgcolor=(0, 0xff, 0x92, 0xff))
+        # setup bars
         self.hbar = DragBar(self,
                 value=0,
                 minvalue=0,
@@ -105,17 +125,6 @@ class ServoControl(UIBase):
                 vertical=True,
                 blockwidth=40,
                 )
-        self.playPosHinter = UIBase(self, pos=(0, 0), size=(5, self.size[1]), 
-                bgcolor=(0xff, 0x0f, 0, 0x25))
-        self.actived = 0
-        self._playing = False
-        self._synced = False
-        self.playPos = 0
-        self.timeStep = INIT_TIME_STEP
-        self.playFPS = 1./self.timeStep
-        self.proxy = None
-        self.animateTm = None
-        self.set_play_FPS(self.playFPS)
         def hbarCallBack():
             x, y = self.viewpos
             x1 = self.hbar.value
@@ -129,6 +138,21 @@ class ServoControl(UIBase):
             self.viewpos = x, y1
         self.hbar.bind_on_change(hbarCallBack)
         self.vbar.bind_on_change(vbarCallBack)
+        # playPosHinter, the big vertical line
+        self.playPosHinter = UIBase(self, pos=(0, 0), size=(5, self.size[1]), 
+                bgcolor=(0xff, 0x0f, 0, 0x25))
+        # others
+        self.actived = 0
+        self._playing = False
+        self._synced = False
+        self.playPos = 0
+        self.timeStep = INIT_TIME_STEP
+        self.proxy = None
+        self.animateTm = None
+        self.set_play_FPS(1./self.timeStep)
+        # for debug
+        self.loopEnd = 20
+
         self.bind(EV_CLICK, self.on_click)
         self.bind_keys()
 
@@ -151,6 +175,8 @@ class ServoControl(UIBase):
         self.bind_key(K_c, 
                 lambda e: self.clear_servo(self.servos[self.actived]),
                 [KMOD_CTRL, KMOD_ALT])
+        self.bind_key(K_LEFTBRACKET, self.mark_loop_start)
+        self.bind_key(K_RIGHTBRACKET, self.mark_loop_end)
         # move view left
         self.bind_key(K_h, lambda e: self.move_view(-1), [KMOD_SHIFT])
         # move view right
@@ -217,12 +243,12 @@ class ServoControl(UIBase):
         if proxy:
             try:
                 for servo in self.servos:
-                    angle0 = servo.get_a_at(max(self.playPos - 1, 0))
+                    # angle0 = servo.get_a_at(max(self.playPos - 1, 0))
                     angle = servo.get_a_at(self.playPos)
-                    speed = max(50, int(k * abs(angle - angle0) / self.timeStep))
+                    # speed = max(50, int(k * abs(angle - angle0) / self.timeStep))
                     if servo.is_safe_angle(angle):
                         adv = servo.angle2ad(angle)
-                        proxy.setPos(servo.sid, adv, speed)
+                        proxy.setPosTime(servo.sid, adv, int(1000*self.timeStep))
                     else:
                         interval = servo.min, servo.max
                         warn('%(angle)d out of range, need to be in %(interval)s, in %(self)s' % locals())
@@ -257,10 +283,12 @@ class ServoControl(UIBase):
 
     def play(self):
         self._playing = True
+        self.ruler.mark_redraw()
 
     def pause(self):
         self._playing = False
         self.goto_frame(self.playPos)
+        self.ruler.mark_redraw()
 
     def connect_robot(self):
         if self.proxy is None:
@@ -294,6 +322,8 @@ class ServoControl(UIBase):
 
     @playPos.setter
     def playPos(self, p):
+        if p == self.loopEnd and self.loopEnd != self.loopStart:
+            p = self.loopStart
         self._playPos = p
         self.playPosHinter.pos = V2I(((p + 0.5 - self.viewpos[0]) * self.FRAME_WIDTH - 3, 0))
 
@@ -329,6 +359,26 @@ class ServoControl(UIBase):
         self.hbar.value = self.viewpos[0]
         self.vbar.maxvalue = len(servos) * (servos[0].size[1] + self.MARGIN)
         self.vbar.value = self.viewpos[1]
+
+    def mark_loop_start(self, *args):
+        ti = self.selected
+        if ti == self.loopStart:
+            self.loopStart = None
+        elif ti != self.loopEnd:
+            self.loopStart = ti
+        else:
+            warn("can not set empty loop")
+        self.ruler.mark_redraw()
+
+    def mark_loop_end(self, *args):
+        ti = self.selected
+        if ti == self.loopEnd:
+            self.loopEnd = None
+        elif ti != self.loopStart:
+            self.loopEnd = ti
+        else:
+            warn("can not set empty loop")
+        self.ruler.mark_redraw()
 
     def insert_key_frame(self, event):
         if self._playing: 
@@ -469,6 +519,9 @@ class ServoControl(UIBase):
         h = (h0 - bw - self.RULER_HEIGHT) / max(1, len(self.servos)) - bw
         h = max(ServoBoard.MIN_HEIGHT, h)
         return w, h
+
+    def is_playing(self):
+        return self._playing
 
     def resize(self, nsize):
         super(ServoControl, self).resize(nsize)

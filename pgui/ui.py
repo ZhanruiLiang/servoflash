@@ -194,8 +194,9 @@ class UIBase(EventHandler, pg.sprite.Sprite):
         for child in args:
             try:
                 self.childs.remove(child)
-            except ValueError:
-                print 'WARN: remove child %(child)r from %(self)r more than once' % locals()
+            except ValueError as ex:
+                pass
+                # print ex
 
     def get_global_pos_at(self, localPos):
         # p0(basic pos) in global

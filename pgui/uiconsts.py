@@ -44,7 +44,7 @@ COLOR_TRANS = (0, 0, 0, 0)
 DEFAULT_FONT = 'MonospaceTypewriter.ttf'
 
 MAX_LEVEL = 100000
-FPS = 40
+FPS = 30
 
 # video flag
 VFLAG = RESIZABLE | DOUBLEBUF

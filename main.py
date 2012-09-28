@@ -57,7 +57,7 @@ controller.on_select_servo = on_select_servo
 controller.on_select= on_select
 
 # set up the main menu
-mmenu = MainMenu(root, controller, level=200, pos=(1, 0))
+mmenu = MainMenu(root, controller, level=200, size=(200, MENU_H), pos=(1, 0))
 
 # start mainloop 
 controller.slmgr.load_last()

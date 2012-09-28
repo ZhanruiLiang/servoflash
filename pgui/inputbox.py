@@ -45,6 +45,7 @@ class InputBox(UIBase, Focusable):
 
         self.confirmCallBacks = []
         self.changeCallBacks = []
+        self._confirmed = False
 
     def start_blink(self):
         self._blinkState = 0
@@ -57,11 +58,14 @@ class InputBox(UIBase, Focusable):
     def on_lost_focus(self):
         self._editing = False
         self.blinker = ColorAnimate(self.blinker.get(), self.bgcolor)
-        # self.on_confirm()
+        self.on_confirm()
 
     def on_confirm(self):
+        if self._confirmed: return
         for cb in self.confirmCallBacks:
             cb()
+        self.mark_redraw()
+        self._confirmed = True
 
     def bind_on_confirm(self, cb):
         self.confirmCallBacks.append(cb)
@@ -74,6 +78,7 @@ class InputBox(UIBase, Focusable):
         del self.confirmCallBacks[:]
 
     def on_change(self):
+        self._confirmed = False
         for cb in self.changeCallBacks:
             cb()
 

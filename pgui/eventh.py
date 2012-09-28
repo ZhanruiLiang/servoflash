@@ -20,8 +20,8 @@ class EventHandler:
         """
         if eventType == EV_CLICK:
             def handler1(e):
-                if e.type == MOUSEBUTTONDOWN and e.button == BTN_MOUSELEFT:
-                    handler()
+                if e.type == MOUSEBUTTONUP and e.button == BTN_MOUSELEFT:
+                    handler(e)
                 else:
                     return True
         else:

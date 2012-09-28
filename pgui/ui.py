@@ -67,7 +67,7 @@ class UIBase(EventHandler, pg.sprite.Sprite):
         if parent is not None:
             self.parent.add_child(self)
         # bind function to cancal focus when click on empty place
-        self.bind(EV_CLICK, lambda e: focus.set_focus(None), BLK_POST_NONBLOCK)
+        # self.bind(EV_CLICK, lambda *e: focus.set_focus(None), BLK_POST_NONBLOCK)
 
     def init(self):
         pass

@@ -3,6 +3,7 @@ from inputbox import InputBox
 from textbox import TextBox
 from timer import Timer
 from root import Root
+from label import Label
 from button import Button
 
 class Dialog(UIBase):
@@ -79,8 +80,15 @@ class OptionDialog(UIBase):
             btn = Button(self, 
                     pos=(margin+i*(itemsize[0]+margin), 200+2*margin),
                     caption=opt, size=itemsize)
-            btn.bind_command(lambda e,i=i:self.choose(i))
+            btn.bind_command(lambda i=i:self.choose(i))
 
     def choose(self, i):
         self.callback(i)
         self.parent.hide_dialog()
+
+class InfoDialog(Label):
+    def __init__(self, msg, emergency=0, **dargs):
+        root = Root.instance
+        self.emergency = emergency
+        super(InfoDialog, self).__init__(root, 
+                autosize=True, text=msg,**dargs)

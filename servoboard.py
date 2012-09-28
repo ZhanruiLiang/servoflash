@@ -1,6 +1,7 @@
 from pgui.ui import *
 from pgui.label import Label
 from pgui.root import Root, warn, hint
+from config import *
 
 class KeyFrame:
     def __init__(self, dti, a):
@@ -17,7 +18,7 @@ class ServoBoard(UIBase):
     RULER_COLOR = (230, 230, 230, 255)
     LABEL_COLOR = (170, 170, 170, 120)
     FRAME_WIDTH = 9
-    MIN_HEIGHT = 100
+    MIN_HEIGHT = BOARD_MIN_HEIGHT
     AllArgs = update_join(UIBase.AllArgs, 
             selectcolor='(0, 160, 245, 85)',
             bgcolor='(255, 255, 255, 255)',

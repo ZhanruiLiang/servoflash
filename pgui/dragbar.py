@@ -36,6 +36,10 @@ class DragBar(UIBase):
         except AttributeError:
             pass
 
+    def set_value(self, value):
+        self._value = value
+        self.mark_redraw()
+
     def init(self):
         self.backButton = back = TransButton(
                 self, level=11, size=self.size, hovercolor=self.hovercolor)

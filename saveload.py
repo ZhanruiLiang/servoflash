@@ -12,28 +12,29 @@ class SaveLoadManager:
         self.servoc = servoc
         self.lastSave = None
         self.lastSaveData = None
+        self.make_config_folder()
 
     def load(self, filename):
         servoc = self.servoc
-        try:
-            with open(filename, 'rb') as f:
-                data = cPickle.load(f)
-            servosData = data['servos']
-            servoc.remove_servo()
-            for adata in servosData:
-                keyFrames = adata['keyFrames']
-                del adata['keyFrames']
-                servo = ServoBoard(servoc, **adata)
-                del servo.keyFrames[:]
-                for a, dti in keyFrames:
-                    servo.keyFrames.append(KeyFrame(dti, a))
-                servoc.add_servo(servo)
-            servoc.reset()
-            servoc.mark_redraw()
-            hint('load data from file "%s"' % filename)
-            self.lastSave = filename
-        except Exception as ex:
-            raise SaveLoadError(ex)
+        # try:
+        with open(filename, 'rb') as f:
+            data = cPickle.load(f)
+        servosData = data['servos']
+        servoc.remove_servo()
+        for adata in servosData:
+            keyFrames = adata['keyFrames']
+            del adata['keyFrames']
+            servo = ServoBoard(servoc, **adata)
+            del servo.keyFrames[:]
+            for a, dti in keyFrames:
+                servo.keyFrames.append(KeyFrame(dti, a))
+            servoc.add_servo(servo)
+        servoc.reset()
+        servoc.mark_redraw()
+        hint('load data from file "%s"' % filename)
+        self.lastSave = filename
+        # except Exception as ex:
+        #     raise SaveLoadError(ex)
 
     def save(self, filename, remember=True):
         servoc = self.servoc
@@ -50,9 +51,29 @@ class SaveLoadManager:
                 if remember:
                     self.lastSave = filename
                     self.lastSaveData = data
+                    self.write_session()
         except Exception as ex:
             raise SaveLoadError(ex)
         hint('save data to file "%s"' % filename)
+
+    def write_session(self):
+        names = ['lastSave']
+        filename = os.path.expanduser('~/.servoc/session')
+        with open(filename, 'w') as f:
+            for name in names:
+                f.write('%s=%s\n' %(name, getattr(self, name)))
+
+    def read_session(self):
+        session = {}
+        filename = os.path.expanduser('~/.servoc/session')
+        if not os.path.exists(filename):
+            return session
+        with open(filename) as f:
+            line = f.readline().split('=')
+            if line and line[0]:
+                name, val = map(lambda x:x.strip(), line)
+                session[name] = val
+        return session
 
     def backup_file(self, filename):
         MaxBackupNum = 5
@@ -81,10 +102,13 @@ class SaveLoadManager:
         return data
 
     def load_last(self):
-        #DUMMY
-        self.load('save4')
+        session = self.read_session()
+        lastSave = session.get('lastSave', None)
+        if not lastSave:
+            self.servoc.new_servos(6)
+        else:
+            self.lastSave = lastSave
+            self.load(lastSave)
 
-    def make_home_config(self):
+    def make_config_folder(self):
         os.system('mkdir -p ~/.servoc')
-        top = os.path.expanduser('~/.servoc')
-        # TODO

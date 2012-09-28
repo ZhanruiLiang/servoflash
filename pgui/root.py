@@ -159,8 +159,8 @@ class Root(UIBase):
                     level=self.DIALOG_LEVEL-1, 
                     size=self.size,
                     bgcolor=(0, 0, 0, 0x88))
-            self._diaglogBG.bind(EV_MOUSEDOWN, lambda e:None, BLK_PRE_BLOCK)
-            self._diaglogBG.bind(EV_KEYPRESS, lambda e:None, BLK_PRE_BLOCK)
+            self._diaglogBG.bind(EV_MOUSEDOWN, lambda *e:None, BLK_PRE_BLOCK)
+            self._diaglogBG.bind(EV_KEYPRESS, lambda *e:None, BLK_PRE_BLOCK)
         else:
             if self._diaglogBG.size != self.size:
                 self._diaglogBG.resize(self.size)

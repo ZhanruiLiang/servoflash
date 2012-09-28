@@ -8,12 +8,13 @@ class Label(UIBase):
     ALIGN_RIGHT = 2
 
     AllArgs = update_join(UIBase.AllArgs, 
+            autosize='False',
             align='self.ALIGN_CENTER',
             text='""',
             bgcolor='(0x88, 0x88, 0x88, 0xff)',
             )
     ArgsOrd = ord_join(UIBase.ArgsOrd,
-            ['align', 'bgcolor', 'size', 'text']
+            ['autosize', 'align', 'bgcolor', 'size', 'text']
             )
     Font = pg.font.Font(os.path.join(RES_DIR, 'MonospaceTypewriter.ttf'), 13)
     @property
@@ -23,6 +24,15 @@ class Label(UIBase):
     @text.setter
     def text(self, new):
         self._text = new
+        if self.autosize:
+            w, h = self.size
+            tw, th = self.Font.size(self._text)
+            if tw > w or th > h:
+                if self.align == self.ALIGN_CENTER:
+                    self.pos = self.pos[0] - (tw - w)/2
+                elif self.align == self.ALIGN_RIGHT:
+                    self.pos = self.pos[0] - (tw - w)
+                self.resize(tw, max(th, h))
         self.mark_redraw()
 
     def redraw(self, *args):
